@@ -16,8 +16,13 @@
 //とりあえずやっつけで適当に書いたので後世の人頼んだ
 //いろいろ便利機能つけすぎて再利用性落とさんようにな～^^
 
+bool initialized = false;
+
 void SerilInitialize(long baudrate){
-    Serial.begin(baudrate);
+    if(!initialized){
+        Serial.begin(baudrate);
+        initialized = true;
+    }
 }
 
 void SerilInitialize(){
