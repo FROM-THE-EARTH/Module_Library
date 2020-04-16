@@ -19,7 +19,9 @@ class SerialPort
         bool Initialize(int baudrate);
         bool Initialize(int baudrate,int num);  //複数ポートがあるマイコン用
         void WriteByte(uint8_t data);
+        void WriteBytes(uint8_t* buffer,int length);
         int ReadByte();
+        void ReadByte(uint8_t* buffer,int length);
 }
 
 #define ARDUINO	//ここにマイコンを追記していく
@@ -53,9 +55,17 @@ void SerialPort::WriteByte(uint8_t data)
     Serial.write(data);
 }
 
+void SerialPort::WriteBytes(uint8_t* buffer,int length){
+    Serial.write(buffer,length);
+}
+
 int SerialPort::ReadByte()
 {
     return Serial.read();
+}
+
+void SerialPort::ReadBytes(uint8_t* buffer,int length){
+    Serial.readBytes(buffer, length);
 }
 
 #endif
@@ -98,11 +108,19 @@ void SerialPort::WriteByte(uint8_t data)
     HAL_UART_Transmit(handler,&data, 1, 0xF);
 }
 
+void SerialPort::WriteBytes(uint8_t* buffer,int length){
+    HAL_UART_Transmit(handler,buffer, length, 0xFFF);
+}
+
 int SerialPort::ReadByte()
 {
     uint8_t data;
     HAL_UART_Receive(handler,&data, 1, 0xF);
     return (int)data;
+}
+
+void SerialPort::ReadBytes(uint8_t* buffer,int length){
+    HAL_UART_Receive(handler,buffer, length, 0xFFF);
 }
 
 #endif
