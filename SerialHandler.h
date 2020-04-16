@@ -22,24 +22,37 @@ class SerialPort
         void WriteBytes(uint8_t* buffer,int length);
         int ReadByte();
         void ReadByte(uint8_t* buffer,int length);
-}
+};
 
 #define ARDUINO	//ここにマイコンを追記していく
 //#define MBED
 //#define STM32
 
 #ifdef ARDUINO						//arduinoのSerial用
+/*
+#include <SoftwareSerial.h> //serialが足りない時用
+SoftwareSerial Serial1(2, 3);
+*/
 
 bool SerialPort::Initialize(int baudrate,int num){
-    if(num == 0){
-        if(!initialized){
-            Serial.begin(baudrate);
-            initialized = true;
+    if(!initialized){
+        switch (num)
+        {
+        case 0:
+            handler = &Serial;
+            break;
+        
+        case 1:
+            handler = &Serial1;
+            break;
+        
+        default:
+            return false;
         }
-        return true;
-    }else{
-        return false;
+        (*handler).begin(baudrate);
+        initialized = true;
     }
+    return true;
 }
 
 bool SerialPort::Initialize(int baudrate){
@@ -52,20 +65,27 @@ bool SerialPort::Initialize(){
 
 void SerialPort::WriteByte(uint8_t data)
 {
-    Serial.write(data);
+    (*handler).write(data);
 }
 
 void SerialPort::WriteBytes(uint8_t* buffer,int length){
-    Serial.write(buffer,length);
+    (*handler).write(buffer,length);
 }
 
 int SerialPort::ReadByte()
 {
-    return Serial.read();
+    return (*handler).read();
 }
 
 void SerialPort::ReadBytes(uint8_t* buffer,int length){
-    Serial.readBytes(buffer, length);
+    if(handler == &Serial){
+        (*handler).readBytes(buffer, length);
+    }
+    else{
+        for(int i = 0;i < length;i++){
+            buffer[i] = Serial.read();
+        }
+    }
 }
 
 #endif
