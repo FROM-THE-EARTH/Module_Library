@@ -21,8 +21,8 @@ class SerialPort
         bool Initialize(int baudrate,int num);  //複数ポートがあるマイコン用
         void WriteByte(uint8_t data);
         void WriteBytes(uint8_t* buffer,int length);
-        int ReadByte();
-        void ReadBytes(uint8_t* buffer,int length);
+        int ReadByte();                             //タイムアウトしたら-1を返す
+        int ReadBytes(uint8_t* buffer,int length);  //読んだ文字数を返す
 };
 
 #define ARDUINO	//ここにマイコンを追記していく
@@ -33,6 +33,7 @@ class SerialPort
 
 bool SerialPort::Initialize(int baudrate,int num){
     if(num == 0){
+        port = 0;
         if(!initialized){
             Serial.begin(baudrate);
             initialized = true;
@@ -65,8 +66,8 @@ int SerialPort::ReadByte()
     return Serial.read();
 }
 
-void SerialPort::ReadBytes(uint8_t* buffer,int length){
-    Serial.readBytes(buffer, length);
+int SerialPort::ReadBytes(uint8_t* buffer,int length){
+    return Serial.readBytes(buffer, length);
 }
 
 //serialが足りない時用
@@ -136,11 +137,11 @@ int SerialPort::ReadByte()
     }
 }
 
-void SerialPort::ReadBytes(uint8_t* buffer,int length){
+int SerialPort::ReadBytes(uint8_t* buffer,int length){
     if(port == 0){
-        (*(HardwareSerial*)handler).readBytes(buffer, length);
+        return (*(HardwareSerial*)handler).readBytes(buffer, length);
     }else{
-        (*(SoftwareSerial*)handler).readBytes(buffer, length);
+        return (*(SoftwareSerial*)handler).readBytes(buffer, length);
     }
 }
 */
@@ -192,12 +193,14 @@ void SerialPort::WriteBytes(uint8_t* buffer,int length){
 int SerialPort::ReadByte()
 {
     uint8_t data;
-    HAL_UART_Receive(handler,&data, 1, 0xF);
-    return (int)data;
+    if(ReadBytes(*data,1) != -1)return (int)data;
+    else return -1;
 }
 
-void SerialPort::ReadBytes(uint8_t* buffer,int length){
-    HAL_UART_Receive(handler,buffer, length, 0xFFF);
+int SerialPort::ReadBytes(uint8_t* buffer,int length){
+    getLen = HAL_UART_Receive(handler,buffer, length, 0xFFF);
+    if(getlen < 1)return -1;
+    else return getLen;
 }
 
 #endif
