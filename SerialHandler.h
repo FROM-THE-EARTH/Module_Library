@@ -12,6 +12,7 @@
 class SerialPort
 {
     private:
+        int port;
         bool initialized = false;
         void* handler;
     public:
@@ -21,7 +22,7 @@ class SerialPort
         void WriteByte(uint8_t data);
         void WriteBytes(uint8_t* buffer,int length);
         int ReadByte();
-        void ReadByte(uint8_t* buffer,int length);
+        void ReadBytes(uint8_t* buffer,int length);
 };
 
 #define ARDUINO	//ここにマイコンを追記していく
@@ -29,27 +30,72 @@ class SerialPort
 //#define STM32
 
 #ifdef ARDUINO						//arduinoのSerial用
+
+bool SerialPort::Initialize(int baudrate,int num){
+    if(num == 0){
+        if(!initialized){
+            Serial.begin(baudrate);
+            initialized = true;
+        }
+        return true;
+    }else{
+        return false;
+    }
+}
+
+bool SerialPort::Initialize(int baudrate){
+    return Initialize(baudrate,0);
+}
+
+bool SerialPort::Initialize(){
+    return Initialize(115200,0);
+}
+
+void SerialPort::WriteByte(uint8_t data)
+{
+    Serial.write(data);
+}
+
+void SerialPort::WriteBytes(uint8_t* buffer,int length){
+    Serial.write(buffer,length);
+}
+
+int SerialPort::ReadByte()
+{
+    return Serial.read();
+}
+
+void SerialPort::ReadBytes(uint8_t* buffer,int length){
+    Serial.readBytes(buffer, length);
+}
+
+//serialが足りない時用
 /*
-#include <SoftwareSerial.h> //serialが足りない時用
+#include <SoftwareSerial.h>
 SoftwareSerial Serial1(2, 3);
-*/
 
 bool SerialPort::Initialize(int baudrate,int num){
     if(!initialized){
+        port = num;
         switch (num)
         {
         case 0:
-            handler = &Serial;
+            handler = (void*)&Serial;
             break;
         
         case 1:
-            handler = &Serial1;
+            handler = (void*)&Serial1;
             break;
         
         default:
             return false;
         }
-        (*handler).begin(baudrate);
+        if(port == 0){
+            (*(HardwareSerial*)handler).begin(baudrate);
+        }else{
+            
+            (*(SoftwareSerial*)handler).begin(baudrate);
+        }
         initialized = true;
     }
     return true;
@@ -65,32 +111,43 @@ bool SerialPort::Initialize(){
 
 void SerialPort::WriteByte(uint8_t data)
 {
-    (*handler).write(data);
+    if(port == 0){
+            (*(HardwareSerial*)handler).write(data);
+    }else{
+        (*(SoftwareSerial*)handler).write(data);
+    }
 }
 
-void SerialPort::WriteBytes(uint8_t* buffer,int length){
-    (*handler).write(buffer,length);
+void SerialPort::WriteBytes(uint8_t* buffer,int length)
+{
+    if(port == 0){
+            (*(HardwareSerial*)handler).write(buffer,length);
+    }else{
+        (*(SoftwareSerial*)handler).write(buffer,length);
+    }
 }
 
 int SerialPort::ReadByte()
 {
-    return (*handler).read();
+    if(port == 0){
+        return (*(HardwareSerial*)handler).read();
+    }else{
+        return (*(SoftwareSerial*)handler).read();
+    }
 }
 
 void SerialPort::ReadBytes(uint8_t* buffer,int length){
-    if(handler == &Serial){
-        (*handler).readBytes(buffer, length);
-    }
-    else{
-        for(int i = 0;i < length;i++){
-            buffer[i] = Serial.read();
-        }
+    if(port == 0){
+        (*(HardwareSerial*)handler).readBytes(buffer, length);
+    }else{
+        (*(SoftwareSerial*)handler).readBytes(buffer, length);
     }
 }
+*/
 
 #endif
 
-#ifdef STM32						//STM32のSerial用
+#ifdef STM32						//STM32のSerial用(CubeMX IDEでシリアルポートを有効にしておくこと)
 
 bool SerialPort::Initialize(int baudrate,int num){
     if(!initialized){
