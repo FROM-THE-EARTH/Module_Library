@@ -224,7 +224,7 @@ bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	return true;
 }
 
-bool::MPU9250::Initialize()
+bool MPU9250::Initialize()
 {
 	return Initialize(16, 2000, 100);
 }

@@ -159,7 +159,7 @@ bool MPU6050::Initialize(int AccelScale, int GyroScale){
 	return true;
 }
 
-bool::MPU6050::Initialize()
+bool MPU6050::Initialize()
 {
 	return Initialize(16, 2000);
 }
