@@ -1,58 +1,92 @@
 #ifndef SPIHANDLER_H
 #define SPIHANDLER_H
 
-/*
+#include "SystemHandler.h"
 
-センサのライブラリ群用のspiライブラリです。
-別のマイコンを利用する場合は関数名、引数を変えないで互換性を保ってください。
-新たにセンサのライブラリを作る際にもspiを利用する際はこのハンドラを通して、特定のマイコン専用にならないようにしてください。
-
-*/
-
-#define ARDUINO	//ここにマイコンを追記していく
-//#define MBED
-
-#ifdef ARDUINO						//arduinoのspi用
-
-#include <SPI.h>
-#define SPI_CLOCK 1000000
-
-void SpiInitialize(int pin){
-	pinMode(pin, OUTPUT);
-}
-
-void SpiWriteByte(uint8_t reg, uint8_t data,int pin)
+struct SPIHandle
 {
-	SPI.beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
-    digitalWrite(pin, LOW);
-    SPI.transfer(reg);
-    SPI.transfer(data);
-    digitalWrite(pin, HIGH);
-	SPI.endTransaction();
-}
+	uint8_t number = 0;
+	bool initialized = false;
+	uint8_t pins[10];
+	uint8_t pinsnum = 0;
+};
 
-uint8_t SpiReadByte(uint8_t reg,int pin)
-{
-	uint8_t data;
-	SPI.beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
-    digitalWrite(pin, LOW);
-	SPI.transfer(reg | 0b1000000);
-	data = SPI.transfer(0);
-    digitalWrite(pin, HIGH);
-	SPI.endTransaction();
-	return data;
-}
-
-void SpiReadBytes(uint8_t reg, uint8_t *data, uint8_t count)
-{
-	SPI.beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
-    digitalWrite(pin, LOW);
-	SPI.transfer(reg | 0b1000000);
-	SPI.transfer(data, count);
-    digitalWrite(pin, HIGH);
-	SPI.endTransaction();
-}
-
+#ifdef ARDUINO
+	#include <SPI.h>
+	SPISettings spisettings(1000000, MSBFIRST, SPI_MODE0);
 #endif
+
+bool SpiInitialize(SPIHandle *handle){
+	if(handle->initialized == false){
+		#ifdef ARDUINO
+		if(handle->number == 0){
+			SPI.begin();
+			pinMode(SS,OUTPUT);
+			pinsnum = 1;
+			pins[pinsnum - 1] = SS;
+			handle->initialized = true;
+		}else{
+			DebugMessage("This SPI number is not available for Arduino\n");
+		}
+		#endif
+	}
+
+	return handle->initialized;
+}
+
+bool pinCheck(SPIHandle *handle,uint8_t pin){
+	for(uint8_t i = 0;i < handle->pinsnum;i++){
+		if(handle->pins[i] == pin){
+			return true;
+		}
+	}
+	return false;
+}
+
+void SpiAddSlaveSelectPin(SPIHandle *handle, uint8_t pin){
+	if(pinCheck(handle,pin) == false){
+		pinsnum++;
+		pins[pinsnum - 1] = pin;
+		#ifdef ARDUINO
+		pinMode(pin,OUTPUT);
+		#endif
+	}else{
+		DebugMessage("This pin has been added as SlaveSelectPin\n");
+	}
+}
+
+void SSpinLow(uint8_t pin){
+	#ifdef ARDUINO
+    digitalWrite(pin, LOW);
+	#endif
+}
+
+void SSpinHigh(uint8_t pin){
+	#ifdef ARDUINO
+    digitalWrite(pin, HIGH);
+	#endif
+}
+
+void SpiTransmit(SPIHandle *handle, int pin, uint8_t AddressAndCommand, uint8_t *buffer, uint8_t count)
+{
+	if(handle->initialized == true){
+		if(pinCheck(handle,pin) == true){
+			SSpinLow(pin);
+
+			#ifdef ARDUINO
+			SPI.beginTransaction(spisettings);
+			SPI.transfer(add);
+			SPI.transfer(buffer,count);
+			SPI.endTransaction();
+			#endif
+
+			SSpinHigh(pin);
+		}else{
+			DebugMessage("This pin has not been added\n");
+		}
+	}else{
+		DebugMessage("This SPI number has no been initialized\n");
+	}
+}
 
 #endif

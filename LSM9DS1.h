@@ -20,6 +20,7 @@
 */
 
 #include "I2CHandler.h"
+#include "SystemHandler.h"
 
 #define LSM9DS1_M 0x1E
 #define LSM9DS1_AG 0x6B
@@ -126,68 +127,24 @@
 #define LSM9DS1_SENSITIVITY_MAGNETOMETER_12 0.00043
 #define LSM9DS1_SENSITIVITY_MAGNETOMETER_16 0.00058
 
-class LSM_9DS1
+const char InitErrMsg[] = "This LSM9DS1 has not been initialized\n";
+const char FifoErrMsg[] = "FIFO has not been enabled in this LSM9DS1\n";
+
+struct LSM9DS1
 {
-private:
-	void FIFOInit();
-	void AccInit(int scale);
-	void GyrInit(int scale);
-	void MagInit(int scale);
-	void FiltersInit();
+	bool initialized = false;
+	I2CHandle *i2chandle;
+	int AccelScale = 16;
+	int GyroScale = 2000;
+	int MagnetScale = 16;
 	float AccelSensitivity;
 	float GyroSensitivity;
 	float MagnetSensitivity;
-
-public:
-	bool Initialize();
-	bool Initialize(int AccelScale, int GyroScale, int MagnetScale);
-	bool ReadAcc(float *x, float *y, float *z);
-	bool ReadGyr(float *x, float *y, float *z);
-	void ReadAccFIFO(float *x, float *y, float *z);
-	void ReadGyrFIFO(float *x, float *y, float *z);
-	bool ReadMag(float *x, float *y, float *z);
-	int availableFIFO();
+	bool FilterEnable = false;
+	bool FifoEnable = false;
 };
 
-/*
-#include <Wire.h>
-
-void I2cWriteByte(uint8_t add, uint8_t reg, uint8_t data)
-{
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.write(data);
-	Wire.endTransmission();
-}
-
-uint8_t I2cReadByte(uint8_t add, uint8_t reg)
-{
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.endTransmission(false);
-	Wire.requestFrom(add, (uint8_t)1);
-	uint8_t data = Wire.read();
-	return data;
-}
-void I2cReadBytes(uint8_t add, uint8_t reg, uint8_t *data, uint8_t count)
-{
-	byte retVal;
-	Wire.beginTransmission(add);
-	Wire.write(reg | 0x80);
-	Wire.endTransmission(false);
-	Wire.requestFrom(add, count);
-	for (int i = 0; i < count; i++)
-	{
-		data[i] = Wire.read();
-	}
-}
-
-void I2cInitialize(){
-	Wire.begin();
-}
-*/
-
-void LSM_9DS1::FIFOInit(){
+static void FifoInit(LSM9DS1 *lsm){
 	uint8_t tempRegValue = 0;
 
 	// CTRL_REG9 (0x23) (Default value: 0x00)
@@ -202,7 +159,7 @@ void LSM_9DS1::FIFOInit(){
 	// STOP_ON_FTH - Enable FIFO threshold level use. Default value: 0
 	// 		(0: FIFO depth is not limited; 1: FIFO depth is limited to threshold level)
 	tempRegValue |= (0b10 & 0x3);
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG9, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG9, tempRegValue);
 
 	//	FIFO_CTRL (0x2E) (Default value: 0x00)
 	//	[FMODE2][FMODE1][FMODE0][FTH4][FTH3][FTH2][FTH1][FTH0]
@@ -216,17 +173,17 @@ void LSM_9DS1::FIFOInit(){
 	//	FTH [4:0] FIFO threshold level setting. Default value: 00000
 	tempRegValue = 0;
 	tempRegValue |= (0b110 & 0x07) << 5;
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_FIFO_CTRL, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_FIFO_CTRL, tempRegValue);
 }
 
-void LSM_9DS1::FiltersInit()
+static void FiltersInit(LSM9DS1 *lsm)
 {
 	uint8_t tempRegValue = 0;
 
 	// REFERENCE_G (0x0B)
 	// [REF7_G][REF6_G][REF5_G][REF4_G][REF3_G][REF2_G][REF1_G][REF0_G]
 	//	REF_G [7:0] Reference value for gyroscope’s digital high-pass filter (r/w).(Default value : 0000 0000)
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_REFERENCE_G, 0x00);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_REFERENCE_G, 0x00);
 
 	// CTRL_REG3_G (Default value: 0x00)
 	// [LP_mode][HP_EN][0][0][HPCF3_G][HPCF2_G][HPCF1_G][HPCF0_G]
@@ -235,7 +192,7 @@ void LSM_9DS1::FiltersInit()
 	// HPCF_G[3:0] - HPF cutoff frequency (0000 ~ 1001 depends on ODR)
 	tempRegValue |= (0b01 & 0x03) << 6;
 	tempRegValue |= (0b0000 & 0x11);
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG3_G, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG3_G, tempRegValue);
 
 	// CTRL_REG6_XL (0x20) (Default value: 0x00)
 	// [ODR_XL2][ODR_XL1][ODR_XL0][FS1_XL][FS0_XL][BW_SCAL_ODR][BW_XL1][BW_XL0]
@@ -250,10 +207,10 @@ void LSM_9DS1::FiltersInit()
 	//	1: bandwidth selected according to BW_XL [2:1] selection)
 	// BW_XL[1:0] - Anti-aliasing filter bandwidth selection (00: 408 Hz; 01: 211 Hz; 10: 105 Hz; 11: 50 Hz)
 	// To disable the accel, set the sampleRate bits to 0.
-	tempRegValue = I2cReadByte(LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL);
+	tempRegValue = I2cReadByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL);
 	tempRegValue &= 0b11111000;
 	tempRegValue |= (0b000 & 0x07);
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL, tempRegValue);
 
 	// CTRL_REG7_XL (0x21) (Default value: 0x00)
 	// [HR][DCF1][DCF0][0][0][FDS][0][HPIS1]
@@ -270,10 +227,10 @@ void LSM_9DS1::FiltersInit()
 	tempRegValue |= 0x01 << 7;
 	tempRegValue |= (0b00 & 0x3) << 5;
 	tempRegValue |= 0b100;
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG7_XL, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG7_XL, tempRegValue);
 }
 
-void LSM_9DS1::AccInit(int scale)
+static void AccInit(LSM9DS1 *lsm)
 {
 	uint8_t tempRegValue;
 
@@ -285,7 +242,7 @@ void LSM_9DS1::AccInit(int scale)
 	//	Yen_XL - Y-axis output enabled
 	//	Xen_XL - X-axis output enabled
 	tempRegValue = 0;
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG5_XL, 0b111000);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG5_XL, 0b111000);
 
 	// CTRL_REG6_XL (0x20) (Default value: 0x00)
 	// [ODR_XL2][ODR_XL1][ODR_XL0][FS1_XL][FS0_XL][BW_SCAL_ODR][BW_XL1][BW_XL0]
@@ -294,31 +251,31 @@ void LSM_9DS1::AccInit(int scale)
 	// BW_SCAL_ODR - Bandwidth selection
 	// BW_XL[1:0] - Anti-aliasing filter bandwidth selection
 	// To disable the accel, set the sampleRate bits to 0.
-	tempRegValue = I2cReadByte(LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL);
+	tempRegValue = I2cReadByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL);
 	tempRegValue &= 0b00000111;
 	tempRegValue |= (LSM9DS1_ACC_SAMPLING_RATE & 0x07) << 5;
-	switch (scale)
+	switch (lsm->AccelScale)
 	{
 	case 4:
 		tempRegValue |= (0x2 << 3);
-		AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_4;
+		lsm->AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_4;
 		break;
 	case 8:
 		tempRegValue |= (0x3 << 3);
-		AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_8;
+		lsm->AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_8;
 		break;
 	case 16:
 		tempRegValue |= (0x1 << 3);
-		AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_16;
+		lsm->AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_16;
 		break;
 	default :
 		tempRegValue |= (0x0 << 3);
-		AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_2;
+		lsm->AccelSensitivity = LSM9DS1_SENSITIVITY_ACCELEROMETER_2;
 	}
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG6_XL, tempRegValue);
 }
 
-void LSM_9DS1::GyrInit(int scale)
+static void GyrInit(LSM9DS1 *lsm)
 {
 	uint8_t tempRegValue = 0;
 	// CTRL_REG1_G (Default value: 0x00)
@@ -331,27 +288,27 @@ void LSM_9DS1::GyrInit(int scale)
 	// rate if the gyro is enabled.
 	tempRegValue = 0;
 	tempRegValue = (LSM9DS1_GYR_SAMPLING_RATE & 0x07) << 5;
-	switch (scale)
+	switch (lsm->GyroScale)
 	{
 	case 500:
 		tempRegValue |= (0x1 << 3);
-		GyroSensitivity = LSM9DS1_SENSITIVITY_GYROSCOPE_500;
+		lsm->GyroSensitivity = LSM9DS1_SENSITIVITY_GYROSCOPE_500;
 		break;
 	case 2000:
 		tempRegValue |= (0x3 << 3);
-		GyroSensitivity = LSM9DS1_SENSITIVITY_GYROSCOPE_2000;
+		lsm->GyroSensitivity = LSM9DS1_SENSITIVITY_GYROSCOPE_2000;
 		break;
 	default :
 		tempRegValue |= (0x0 << 3);
-		GyroSensitivity = LSM9DS1_SENSITIVITY_GYROSCOPE_245;
+		lsm->GyroSensitivity = LSM9DS1_SENSITIVITY_GYROSCOPE_245;
 	}
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG1_G, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG1_G, tempRegValue);
 
 	// CTRL_REG2_G (Default value: 0x00)
 	// [0][0][0][0][INT_SEL1][INT_SEL0][OUT_SEL1][OUT_SEL0]
 	// INT_SEL[1:0] - INT selection configuration
 	// OUT_SEL[1:0] - Out selection configuration
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG2_G, 0x00);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG2_G, 0x00);
 
 	// CTRL_REG4 (Default value: 0x38)
 	// [0][0][Zen_G][Yen_G][Xen_G][0][LIR_XL1][4D_XL1]
@@ -361,16 +318,16 @@ void LSM_9DS1::GyrInit(int scale)
 	// LIR_XL1 - Latched interrupt (0:not latched, 1:latched)
 	// 4D_XL1 - 4D option on interrupt (0:6D used, 1:4D used)
 	tempRegValue = 0;
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_CTRL_REG4, 0b111000);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_CTRL_REG4, 0b111000);
 
 	// ORIENT_CFG_G (Default value: 0x00)
 	// [0][0][SignX_G][SignY_G][SignZ_G][Orient_2][Orient_1][Orient_0]
 	// SignX_G - Pitch axis (X) angular rate sign (0: positive, 1: negative)
 	// Orient [2:0] - Directional user orientation selection
-	I2cWriteByte(LSM9DS1_AG, LSM9DS1_ORIENT_CFG_G, 0);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_ORIENT_CFG_G, 0);
 }
 
-void LSM_9DS1::MagInit(int scale)
+static void MagInit(LSM9DS1 *lsm)
 {
 	uint8_t tempRegValue = 0;
 
@@ -392,7 +349,7 @@ void LSM_9DS1::MagInit(int scale)
 	tempRegValue |= (0b11 & 0x3) << 5;
 	tempRegValue |= (LSM9DS1_MAG_SAMPLING_RATE & 0x7) << 2;
 	tempRegValue |= 0b00;	//change to 10 to set ODR faster
-	I2cWriteByte(LSM9DS1_M, LSM9DS1_CTRL_REG1_M, tempRegValue);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_M, LSM9DS1_CTRL_REG1_M, tempRegValue);
 
 	// CTRL_REG2_M (Default value 0x00)
 	// [0][FS1][FS0][0][REBOOT][SOFT_RST][0][0]
@@ -400,23 +357,23 @@ void LSM_9DS1::MagInit(int scale)
 	// REBOOT - Reboot memory content (0:normal, 1:reboot)
 	// SOFT_RST - Reset config and user registers (0:default, 1:reset)
 	tempRegValue = 0;
-	switch (scale)
+	switch (lsm->MagnetScale)
 	{
 	case 8:
 		tempRegValue |= (0x1 << 5);
-		MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_8;
+		lsm->MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_8;
 		break;
 	case 12:
 		tempRegValue |= (0x2 << 5);
-		MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_12;
+		lsm->MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_12;
 		break;
 	case 16:
 		tempRegValue |= (0x3 << 5);
-		MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_16;
+		lsm->MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_16;
 		break;
 	default :
 		tempRegValue |= (0x0 << 5);
-		MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_4;
+		lsm->MagnetSensitivity = LSM9DS1_SENSITIVITY_MAGNETOMETER_4;
 	}
 	I2cWriteByte(LSM9DS1_M, LSM9DS1_CTRL_REG2_M, tempRegValue);
 
@@ -428,7 +385,7 @@ void LSM_9DS1::MagInit(int scale)
 	// MD[1:0] - Operating mode
 	//	00:continuous conversion, 01:single-conversion,
 	//  10,11: Power-down
-	I2cWriteByte(LSM9DS1_M, LSM9DS1_CTRL_REG3_M, 0); // Continuous conversion mode
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_M, LSM9DS1_CTRL_REG3_M, 0); // Continuous conversion mode
 
 	// CTRL_REG4_M (Default value: 0x00)
 	// [0][0][0][0][OMZ1][OMZ0][BLE][0]
@@ -438,159 +395,174 @@ void LSM_9DS1::MagInit(int scale)
 	// BLE - Big/little endian data
 	tempRegValue = 0;
 	tempRegValue = (0b11 & 0x3) << 2;
-	I2cWriteByte(LSM9DS1_M, LSM9DS1_CTRL_REG4_M, 0b1000);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_M, LSM9DS1_CTRL_REG4_M, 0b1000);
 
 	// CTRL_REG5_M (Default value: 0x00)
 	// [0][BDU][0][0][0][0][0][0]
 	// BDU - Block data update for magnetic data
 	//	0:continuous, 1:not updated until MSB/LSB are read
-	I2cWriteByte(LSM9DS1_M, LSM9DS1_CTRL_REG5_M, 0);
+	I2cWriteByte(lsm->i2chandle, LSM9DS1_M, LSM9DS1_CTRL_REG5_M, 0);
 }
 
-bool LSM_9DS1::Initialize(){
-	Initialize(16, 2000, 16);
-}
-
-bool LSM_9DS1::Initialize(int AccelScale, int GyroScale, int MagnetScale)
+bool InitializeLSM9DS1(LSM9DS1 *lsm,I2CHandle i2chandle)
 {
-	I2cInitialize();
-
-	//=====接続確認=====
-	uint8_t mTest = I2cReadByte(LSM9DS1_M, LSM9DS1_WHO_AM_I_M);
-	uint8_t agTest = I2cReadByte(LSM9DS1_AG, LSM9DS1_WHO_AM_I_XG);
-	uint16_t whoAmICombined = (agTest << 8) | mTest;
-	if (whoAmICombined != ((LSM9DS1_WHO_AM_I_AG_RSP << 8) | LSM9DS1_WHO_AM_I_M_RSP))
-	{
-		return false;
+	if(lsm->initialized == false){
+		if(I2cInitialize(i2chandle)){
+			//=====接続確認=====
+			uint8_t mTest = I2cReadByte(lsm->i2chandle, LSM9DS1_M, LSM9DS1_WHO_AM_I_M);
+			uint8_t agTest = I2cReadByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_WHO_AM_I_XG);
+			if(mTest == LSM9DS1_WHO_AM_I_M_RSP && agTest == LSM9DS1_WHO_AM_I_AG_RSP){
+				//=====FIFO有効化=====
+				if(lsm->FifoEnable)FifoInit();
+				//=====フィルタ有効化=====
+				if(lsm->FilterEnable)FiltersInit();
+				//=====センサ初期化=====
+				AccInit(lsm);
+				GyrInit(lsm);
+				MagInit(lsm);
+				lsm->initialized = true;
+			}else{
+				DebugMessage("LSM9DS1 WHO_AM_I test is not correct\n");
+			}
+		}
+	}else{
+		DebugMessage("LSM9DS1  was initialized twice\n");
 	}
-
-	//=====FIFO有効化=====
-	//FIFOInit();
-	//=====フィルタ有効化=====
-	//FiltersInit();
-	//=====センサ初期化=====
-	AccInit(AccelScale);
-	GyrInit(GyroScale);
-	MagInit(MagnetScale);
-
-	return true;
+	return lsm->initialized;
 }
 
-bool LSM_9DS1::ReadAcc(float *x, float *y, float *z)
+bool ReadAccLSM9DS1(LSM9DS1 *lsm,float *x, float *y, float *z)
 {
-	uint8_t status = I2cReadByte(LSM9DS1_AG, LSM9DS1_STATUS_REG_1);
-	if (status & 0b01)
-	{
-		uint8_t temp[6];
-		I2cReadBytes(LSM9DS1_AG, LSM9DS1_OUT_X_L_XL, temp, 6);
+	if(lsm->initialized){
+		uint8_t status = I2cReadByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_STATUS_REG_1);
+		if (status & 0b01)
+		{
+			uint8_t temp[6];
+			I2cReadBytes(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_OUT_X_L_XL, temp, 6);
 
-		int16_t temp_;
+			int16_t temp_;
 
-		temp_ = (temp[1] << 8) | temp[0];
-		*x = temp_ * AccelSensitivity;
+			temp_ = (temp[1] << 8) | temp[0];
+			*x = temp_ * lsm->AccelSensitivity;
 
-		temp_ = (temp[3] << 8) | temp[2];
-		*y = -temp_ * AccelSensitivity;
+			temp_ = (temp[3] << 8) | temp[2];
+			*y = -temp_ * lsm->AccelSensitivity;
 
-		temp_ = (temp[5] << 8) | temp[4];
-		*z = temp_ * AccelSensitivity;
-		return true;
+			temp_ = (temp[5] << 8) | temp[4];
+			*z = temp_ * lsm->AccelSensitivity;
+			return true;
+		}
+	}else{
+		DebugMessage(InitErrMsg);
 	}
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
-bool LSM_9DS1::ReadGyr(float *x, float *y, float *z)
+bool ReadGyrLSM9DS1(LSM9DS1 *lsm,float *x, float *y, float *z)
 {
+	if(lsm->initialized){
+		uint8_t status = I2cReadByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_STATUS_REG_1);
+		if ((status & 0b10) >> 1)
+		{
+			uint8_t temp[6];
+			I2cReadBytes(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_OUT_X_L_G, temp, 6);
 
-	uint8_t status = I2cReadByte(LSM9DS1_AG, LSM9DS1_STATUS_REG_1);
-	if ((status & 0b10) >> 1)
-	{
-		uint8_t temp[6];
-		I2cReadBytes(LSM9DS1_AG, LSM9DS1_OUT_X_L_G, temp, 6);
+			int16_t temp_;
 
-		int16_t temp_;
+			temp_ = (temp[1] << 8) | temp[0];
+			*x = temp_ * lsm->GyroSensitivity;
 
-		temp_ = (temp[1] << 8) | temp[0];
-		*x = temp_ * GyroSensitivity;
+			temp_ = (temp[3] << 8) | temp[2];
+			*y = -temp_ * lsm->GyroSensitivity;
 
-		temp_ = (temp[3] << 8) | temp[2];
-		*y = -temp_ * GyroSensitivity;
-
-		temp_ = (temp[5] << 8) | temp[4];
-		*z = temp_ * GyroSensitivity;
-		return true;
+			temp_ = (temp[5] << 8) | temp[4];
+			*z = temp_ * lsm->GyroSensitivity;
+			return true;
+		}
+	}else{
+		DebugMessage(InitErrMsg);
 	}
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
-void LSM_9DS1::ReadAccFIFO(float *x, float *y, float *z)
+void ReadAccFifoLSM9DS1(LSM9DS1 *lsm,float *x, float *y, float *z)
 {
-	uint8_t temp[6];
-	I2cReadBytes(LSM9DS1_AG, LSM9DS1_OUT_X_L_XL, temp, 6);
+	if(lsm->initialized){
+		if(lsm->FifoEnable){
+			uint8_t temp[6];
+			I2cReadBytes(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_OUT_X_L_XL, temp, 6);
 
-	int16_t temp_;
+			int16_t temp_;
 
-	temp_ = (temp[1] << 8) | temp[0];
-	*x = temp_ * AccelSensitivity;
+			temp_ = (temp[1] << 8) | temp[0];
+			*x = temp_ * lsm->AccelSensitivity;
 
-	temp_ = (temp[3] << 8) | temp[2];
-	*y = -temp_ * AccelSensitivity;
+			temp_ = (temp[3] << 8) | temp[2];
+			*y = -temp_ * lsm->AccelSensitivity;
 
-	temp_ = (temp[5] << 8) | temp[4];
-	*z = temp_ * AccelSensitivity;
-}
-
-void LSM_9DS1::ReadGyrFIFO(float *x, float *y, float *z)
-{
-
-	uint8_t temp[6];
-	I2cReadBytes(LSM9DS1_AG, LSM9DS1_OUT_X_L_G, temp, 6);
-
-	int16_t temp_;
-
-	temp_ = (temp[1] << 8) | temp[0];
-	*x = temp_ * GyroSensitivity;
-
-	temp_ = (temp[3] << 8) | temp[2];
-	*y = -temp_ * GyroSensitivity;
-
-	temp_ = (temp[5] << 8) | temp[4];
-	*z = temp_ * GyroSensitivity;
-}
-
-bool LSM_9DS1::ReadMag(float *x, float *y, float *z)
-{
-	uint8_t status = I2cReadByte(LSM9DS1_M, LSM9DS1_STATUS_REG_1);
-	if (status & 1)
-	{
-		uint8_t temp[6];
-		I2cReadBytes(LSM9DS1_M, LSM9DS1_OUT_X_L_M, temp, 6);
-
-		int16_t temp_;
-
-		temp_ = (temp[1] << 8) | temp[0];
-		*x = temp_ * GyroSensitivity;
-
-		temp_ = (temp[3] << 8) | temp[2];
-		*y = -temp_ * GyroSensitivity;
-
-		temp_ = (temp[5] << 8) | temp[4];
-		*z = temp_ * GyroSensitivity;
-		return true;
-	}
-	else
-	{
-		return false;
+			temp_ = (temp[5] << 8) | temp[4];
+			*z = temp_ * lsm->AccelSensitivity;
+		}else{
+			DebugMessage(FifoErrMsg);
+		}
+	}else{
+		DebugMessage(InitErrMsg);
 	}
 }
 
-int LSM_9DS1::availableFIFO()
+void ReadGyrFifoLSM9DS1(LSM9DS1 *lsmfloat *x, float *y, float *z)
+{
+	if(lsm->initialized){
+		if(lsm->FifoEnable){
+			uint8_t temp[6];
+			I2cReadBytes(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_OUT_X_L_G, temp, 6);
+
+			int16_t temp_;
+
+			temp_ = (temp[1] << 8) | temp[0];
+			*x = temp_ * lsm->GyroSensitivity;
+
+			temp_ = (temp[3] << 8) | temp[2];
+			*y = -temp_ * lsm->GyroSensitivity;
+
+			temp_ = (temp[5] << 8) | temp[4];
+			*z = temp_ * lsm->GyroSensitivity;
+		}else{
+			DebugMessage(FifoErrMsg);
+		}
+	}else{
+		DebugMessage(InitErrMsg);
+	}
+}
+
+bool ReadMagLSM9DS1(LSM9DS1 *lsm,float *x, float *y, float *z)
+{
+	if(lsm->initialized){
+		uint8_t status = I2cReadByte(lsm->i2chandle, LSM9DS1_M, LSM9DS1_STATUS_REG_1);
+		if (status & 1)
+		{
+			uint8_t temp[6];
+			I2cReadBytes(lsm->i2chandle, LSM9DS1_M, LSM9DS1_OUT_X_L_M, temp, 6);
+
+			int16_t temp_;
+
+			temp_ = (temp[1] << 8) | temp[0];
+			*x = temp_ * lsm->GyroSensitivity;
+
+			temp_ = (temp[3] << 8) | temp[2];
+			*y = -temp_ * lsm->GyroSensitivity;
+
+			temp_ = (temp[5] << 8) | temp[4];
+			*z = temp_ * lsm->GyroSensitivity;
+			return true;
+		}
+	}else{
+		DebugMessage(InitErrMsg);
+	}
+	return false;
+}
+
+int availableFifoLSM9DS1(LSM9DS1 *lsm)
 {
 	// FIFO_SRC (0x2F)
 	// [FTH][OVRN][FSS5][FSS4][FSS3][FSS2][FSS1][FSS0]
@@ -600,6 +572,10 @@ int LSM_9DS1::availableFIFO()
 	//	(0 : FIFO is not completely filled; 1 : FIFO is completely filled and at least one samples has been overwritten)
 	//FSS [5:0] Number of unread samples stored into FIFO.
 	//	(000000 : FIFO empty; 100000 : FIFO full, 32 unread samples)
-	uint8_t status = I2cReadByte(LSM9DS1_AG, LSM9DS1_FIFO_SRC);
-	return status & 0b111111;
+	if(lsm->initialized){
+		uint8_t status = I2cReadByte(lsm->i2chandle, LSM9DS1_AG, LSM9DS1_FIFO_SRC);
+		return status & 0b111111;
+	}else{
+		DebugMessage(FifoErrMsg);
+	}
 }

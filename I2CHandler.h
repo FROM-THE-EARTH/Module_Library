@@ -1,60 +1,83 @@
 #ifndef I2CHANDLER_H
 #define I2CHANDLER_H
 
-/*
+#include "SystemHandler.h"
 
-センサのライブラリ群用のi2cライブラリです。
-別のマイコンを利用する場合は関数名、引数を変えないで互換性を保ってください。
-新たにセンサのライブラリを作る際にもi2cを利用する際はこのハンドラを通して、特定のマイコン専用にならないようにしてください。
+const char InitErrMsg[] = "This I2C number has not been initialized\n";
 
-*/
+struct I2CHandle
+{
+	uint8_t number = 0;
+	bool initialized = false;
+};
 
-#define ARDUINO	//ここにマイコンを追記していく
-//#define MBED
+#ifdef ARDUINO
+	#include "Wire.h"
+#endif
 
-#ifdef ARDUINO	//arduinoのi2c用
+bool I2cInitialize(I2CHandle* handle)
+{
+	if(handle->initialized == false){
+		#ifdef ARDUINO
+		if(handle->number == 0){
+			Wire.begin();
+			Wire.setClock( 400000L );
+			handle->initialized = true;
+		}else{
+			DebugMessage("This I2C number is not available for Arduino\n");
+		}
+		#endif
+	}
+	
+	return handle->initialized;
+}
 
-#include "Wire.h"
-
-bool initialized = false;
-
-void I2cInitialize(){
-	if(!initialized){
-		Wire.begin();
-		Wire.setClock( 400000L );
-		initialized = true;
+void I2cWriteByte(I2CHandle* handle, uint8_t add, uint8_t reg, uint8_t data)
+{
+	if(handle->initialized){
+		#ifdef ARDUINO
+		Wire.beginTransmission(add);
+		Wire.write(reg);
+		Wire.write(data);
+		Wire.endTransmission();
+		#endif
+	}else{
+		DebugMessage(InitErrMsg);
 	}
 }
 
-void I2cWriteByte(uint8_t add, uint8_t reg, uint8_t data)
+uint8_t I2cReadByte(I2CHandle* handle, uint8_t add, uint8_t reg)
 {
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.write(data);
-	Wire.endTransmission();
-}
-
-uint8_t I2cReadByte(uint8_t add, uint8_t reg)
-{
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.endTransmission(false);
-	Wire.requestFrom(add, (uint8_t)1);
-	uint8_t data = Wire.read();
+	uint8_t data = 0;
+	if(handle->initialized){
+		#ifdef ARDUINO
+		Wire.beginTransmission(add);
+		Wire.write(reg);
+		Wire.endTransmission(false);
+		Wire.requestFrom(add, (uint8_t)1);
+		data = Wire.read();
+		#endif
+	}else{
+		DebugMessage(InitErrMsg);
+	}
 	return data;
 }
 
-void I2cReadBytes(uint8_t add, uint8_t reg, uint8_t *data, uint8_t count)
+void I2cReadBytes(I2CHandle* handle, uint8_t add, uint8_t reg, uint8_t *data, uint8_t count)
 {
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.endTransmission(false);
-	Wire.requestFrom(add, count);
-	for (int i = 0; i < count; i++)
-	{
+	if(handle->initialized){
+		#ifdef ARDUINO
+		Wire.beginTransmission(add);
+		Wire.write(reg);
+		Wire.endTransmission(false);
+		Wire.requestFrom(add, count);
+		for (int i = 0; i < count; i++){
 		data[i] = Wire.read();
+		}
+		#endif
+	}else{
+		DebugMessage(InitErrMsg);
 	}
 }
-#endif
 
 #endif

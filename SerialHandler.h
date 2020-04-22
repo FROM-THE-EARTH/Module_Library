@@ -1,44 +1,54 @@
 #ifndef SERIALHANDLER_H
 #define SERIALHANDLER_H
 
-/*
+#include "SystemHandler.h"
 
-センサのライブラリ群用のSerialライブラリです。
-別のマイコンを利用する場合は関数名、引数を変えないで互換性を保ってください。
-新たにセンサのライブラリを作る際にもSerialを利用する際はこのハンドラを通して、特定のマイコン専用にならないようにしてください。
+const char InitErrMsg[] = "This serial number has not been initialized\n";
 
-*/
+struct SerialHandle
+{
+    uint8_t number = 0;
+    bool initialized = false;
+};
 
-#define ARDUINO	//ここにマイコンを追記していく
-//#define MBED
+bool SerialInitialize(SerialHandle *handle){
+    if(handle->initialized == false){
+        #ifdef ARDUINO
+        if(handle->number == 0){
+            Serial.begin(115200);
+        }else{
+            DebugMessage("This serial number is not available for Arduino\n");
+        }
+        #endif
+    }
+    return handle->initialized;
+}
 
-#ifdef ARDUINO						//arduinoのSerial用
-//とりあえずやっつけで適当に書いたので後世の人頼んだ
-//いろいろ便利機能つけすぎて再利用性落とさんようにな～^^
-
-bool initialized = false;
-
-void SerilInitialize(long baudrate){
-    if(!initialized){
-        Serial.begin(baudrate);
-        initialized = true;
+void SerialWriteBytes(SerialHandle *handle, uint8_t *buffer, int count){
+    if(handle->initialized){
+        #ifdef ARDUINO
+        Serial.write(data,count);
+        #endif
+    }else{
+        DebugMessage(InitErrMsg);
     }
 }
 
-void SerilInitialize(){
-    SerilInitialize(115200);
+void SerialReadBytes(SerialHandle *handle, uint8_t *buffer, int count){
+    if(handle->initialized){
+        #ifdef ARDUINO
+        if(Serial.available() >= count){
+            for(int i = 0;i < count;i++){
+                buffer[i] = Serial.read();
+            }
+        }else{
+            DebugMessage("Received datas on serial is not available to read\n");
+        }
+        #endif
+    }else{
+        DebugMessage(InitErrMsg);
+    }
 }
 
-void SerialWriteByte(uint8_t data)
-{
-    Serial.write(data);
-}
-
-int SerialReadByte()
-{
-    return Serial.read();
-}
-
-#endif
 
 #endif
