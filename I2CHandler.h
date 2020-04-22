@@ -3,7 +3,7 @@
 
 #include "SystemHandler.h"
 
-const char InitErrMsg[] = "This I2C number has not been initialized\n";
+static const char InitErrMsg[] = "This I2C number has not been initialized\n";
 
 struct I2CHandle
 {

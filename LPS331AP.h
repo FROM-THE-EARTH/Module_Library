@@ -55,15 +55,15 @@
 //	110  -	12.5		12.5
 //	111  -	25			25
 
-const char InitErrMsg[] = "This LPS331AP has not been initialized\n";
+static const char InitErrMsg[] = "This LPS331AP has not been initialized\n";
 
-struct LPS331AP
+typedef struct
 {
 	I2CHandle *i2chandle;
 	uint8_t address;
 	bool initialized = false;
 	bool SA0 = 0;
-};
+} LPS331AP;
 
 static void RegistersInit(LPS331AP *lps){	
 	uint8_t tempRegValue = 0;

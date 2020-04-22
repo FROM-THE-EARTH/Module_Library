@@ -127,10 +127,10 @@
 #define LSM9DS1_SENSITIVITY_MAGNETOMETER_12 0.00043
 #define LSM9DS1_SENSITIVITY_MAGNETOMETER_16 0.00058
 
-const char InitErrMsg[] = "This LSM9DS1 has not been initialized\n";
-const char FifoErrMsg[] = "FIFO has not been enabled in this LSM9DS1\n";
+static const char InitErrMsg[] = "This LSM9DS1 has not been initialized\n";
+static const char FifoErrMsg[] = "FIFO has not been enabled in this LSM9DS1\n";
 
-struct LSM9DS1
+typedef struct
 {
 	bool initialized = false;
 	I2CHandle *i2chandle;
@@ -142,7 +142,7 @@ struct LSM9DS1
 	float MagnetSensitivity;
 	bool FilterEnable = false;
 	bool FifoEnable = false;
-};
+} LSM9DS1;
 
 static void FifoInit(LSM9DS1 *lsm){
 	uint8_t tempRegValue = 0;
