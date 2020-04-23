@@ -3,20 +3,12 @@
 #ifndef SYSTEMHANDLER_H
 #define SYSTEMHANDLER_H
 
-void DelayMs(unsigned long ms){
-    #ifdef ARDUINO
-        delay(ms);
-    #endif
-}
+#include <stdint.h>
 
-void Reset(){
+void DelayMs(unsigned long ms);
 
-}
+void Reset();
 
-void DebugMessage(char* str){
-    #ifdef ARDUINO
-        Serial.print(str);
-    #endif
-}
+void DebugMessage(char* str);
 
 #endif
