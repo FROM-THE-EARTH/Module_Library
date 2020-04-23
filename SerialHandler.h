@@ -1,44 +1,45 @@
 #ifndef SERIALHANDLER_H
 #define SERIALHANDLER_H
 
-/*
+class SerialHandler
+{
+    private:
+    public:
+        bool initialized = false;
+        uint8_t number = 0;
+};
 
-センサのライブラリ群用のSerialライブラリです。
-別のマイコンを利用する場合は関数名、引数を変えないで互換性を保ってください。
-新たにセンサのライブラリを作る際にもSerialを利用する際はこのハンドラを通して、特定のマイコン専用にならないようにしてください。
-
-*/
-
-#define ARDUINO	//ここにマイコンを追記していく
-//#define MBED
-
-#ifdef ARDUINO						//arduinoのSerial用
-//とりあえずやっつけで適当に書いたので後世の人頼んだ
-//いろいろ便利機能つけすぎて再利用性落とさんようにな～^^
-
-bool initialized = false;
-
-void SerilInitialize(long baudrate){
-    if(!initialized){
-        Serial.begin(baudrate);
-        initialized = true;
+bool SerilInitialize(SerialHandler *handler){
+    if(!handler->initialized){
+        #ifdef ARDUINO
+            if(handler->number == 0){
+                Serial.begin(115200);
+                handler->initialized = true;
+            }
+        #endif
     }
+    return handler->initialized;
 }
 
-void SerilInitialize(){
-    SerilInitialize(115200);
-}
-
-void SerialWriteByte(uint8_t data)
+bool SerialWriteByte(SerialHandler *handler,uint8_t data)
 {
-    Serial.write(data);
+    if(handler->initialized){
+        #ifdef ARDUINO
+            Serial.write(data);
+        #endif
+        return true;
+    }
+    return false;
 }
 
-int SerialReadByte()
+uint8_t SerialReadByte(SerialHandler *handler)
 {
-    return Serial.read();
+    if(handler->initialized){
+        #ifdef ARDUINO
+            return Serial.read();
+        #endif
+    }
+    return 0;
 }
-
-#endif
 
 #endif
