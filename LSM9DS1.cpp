@@ -267,7 +267,7 @@ bool LSM_9DS1::Initialize(I2CHandler *handler){
 
 bool LSM_9DS1::Initialize(I2CHandler *i2chandler, int AccelScale, int GyroScale, int MagnetScale)
 {
-	if(initialized){
+	if(!initialized){
 		if(I2cInitialize(i2chandler)){
 			handler = i2chandler;
 			//=====接続確認=====
