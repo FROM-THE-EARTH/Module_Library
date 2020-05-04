@@ -1,7 +1,7 @@
 #include "MPU6050.h"
 
 bool MPU6050::Initialize(I2CHandler *i2chandler, int AccelScale, int GyroScale){
-	if(initialized){
+	if(!initialized){
 		if(I2cInitialize(i2chandler)){
 			handler = i2chandler;
 			//if(I2cReadByte(handler, MPU6050_ADDRESS, MPU6050_WHO_AM_I) == MPU6050_WHO_AM_I_DEFAULT){

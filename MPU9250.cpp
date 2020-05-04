@@ -1,10 +1,11 @@
 #include "MPU9250.h"
 
 bool MPU9250::Initialize(I2CHandler *i2chandler, int AccelScale, int GyroScale, int MagnetRate){
-	if(initialized){
+	if(!initialized){
 		if(I2cInitialize(i2chandler)){
 			handler = i2chandler;
-			if(I2cReadByte(handler,MPU9250_ADDRESS, MPU9250_WHO_AM_I) == MPU9250_WHO_AM_I_DEFAULT){
+			uint8_t whoami = I2cReadByte(handler,MPU9250_ADDRESS, MPU9250_WHO_AM_I);
+			if(whoami == MPU9250_WHO_AM_I_DEFAULT || whoami == MPU9255_WHO_AM_I_DEFAULT){
 				if(mpu.Initialize(handler,AccelScale,GyroScale)){
 					I2cWriteByte(handler, MPU9250_ADDRESS, MPU9250_INT_PIN_CFG, 0x02);				 //bypass mode(磁気センサが使用出来るようになる)
 					if(ak.Initialize(handler,MagnetRate)){

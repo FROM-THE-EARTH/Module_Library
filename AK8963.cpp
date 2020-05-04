@@ -1,7 +1,7 @@
 #include "AK8963.h"
 
 bool AK8963::Initialize(I2CHandler *i2chandler,int MagnetRate){
-    if(initialized){
+    if(!initialized){
 		if(I2cInitialize(i2chandler)){
 			handler = i2chandler;
 			if(I2cReadByte(handler, AK8963_ADDRESS, AK8963_WIM) == AK8963_WHI_DEFAULT){
@@ -26,7 +26,7 @@ bool AK8963::Initialize(I2CHandler *i2chandler,int MagnetRate){
 
                 mAdjx *= 4921.0f / 32768.0f;	//計算用の係数に変換
                 mAdjy *= 4921.0f / 32768.0f;	//計算用の係数に変換
-                mAdjz *= 4921.0f / 32768.0f;	//計算用の係数に変換			 //スリープモードを解除
+                mAdjz *= 4921.0f / 32768.0f;	//計算用の係数に変換
 				initialized = true;
 			}
 		}
