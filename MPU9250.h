@@ -19,6 +19,7 @@
 
 #define MPU9250_WHO_AM_I 0x75
 #define MPU9250_WHO_AM_I_DEFAULT 0x71
+#define MPU9255_WHO_AM_I_DEFAULT 0x73
 #define MPU9250_PWR_MGMT_1 0x6B
 #define MPU9250_INT_PIN_CFG 0x37
 
@@ -130,7 +131,7 @@ bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	uint8_t tempRegVal;
 	I2cInitialize();
 	tempRegVal = I2cReadByte(MPU9250_ADDRESS, MPU9250_WHO_AM_I);
-	if(tempRegVal != MPU9250_WHO_AM_I_DEFAULT)return false;
+	if(tempRegVal != MPU9250_WHO_AM_I_DEFAULT && tempRegVal != MPU9255_WHO_AM_I_DEFAULT)return false;
 
 	I2cWriteByte(MPU9250_ADDRESS, MPU9250_PWR_MGMT_1, 0);				 //スリープモードを解除
 	switch (AccelScale)
