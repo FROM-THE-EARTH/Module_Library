@@ -5,6 +5,7 @@
 #include "stdbool.h"
 
 void GPS_UART_Receive(char c);	//set UART rx interrupt
+static void GPS_Update();
 void GPS_Get_UTC(uint16_t *year,uint8_t *month, uint8_t *date, uint8_t *hour, uint8_t *minute, uint8_t *second);
 bool GPS_Get_utfReady();
 bool GPS_Get_isReady();

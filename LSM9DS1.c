@@ -1,9 +1,9 @@
 #include "LSM9DS1.h"
 #include "I2CHandler.h"
 
-float AccelSensitivity;
-float GyroSensitivity;
-float MagnetSensitivity;
+static float AccelSensitivity;
+static float GyroSensitivity;
+static float MagnetSensitivity;
 
 static void FIFOInit(){
 	uint8_t tempRegValue = 0;

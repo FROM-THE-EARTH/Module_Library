@@ -1,11 +1,11 @@
 #include "MPU9250.h"
 #include "I2CHandler.h"
 
-float accRange;
-float gyroRange;
-float mAdjx;
-float mAdjy;
-float mAdjz;
+static float accRange;
+static float gyroRange;
+static float mAdjx;
+static float mAdjy;
+static float mAdjz;
 
 bool MPU9250_Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	uint8_t tempRegVal;

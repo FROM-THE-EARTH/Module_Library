@@ -1,7 +1,7 @@
 #include "LPS331AP.h"
 #include "I2CHandler.h"
 
-uint8_t LPS331AP_ADDR;
+static uint8_t LPS331AP_ADDR;
 
 static void LPS331AP_RegistersInit(){
 	uint8_t tempRegValue = 0;

@@ -1,7 +1,11 @@
 #include "SDHandler.h"
 #include "SPIRawHandler.h"
 
-SD_Card sd;
+#ifndef NULL
+#define NULL (void*)0
+#endif
+
+static SD_Card sd;
 
 const uint64_t CRC7 = 0b10001001;
 

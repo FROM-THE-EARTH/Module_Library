@@ -1,8 +1,8 @@
 #include "MPU6050.h"
 #include "I2CHandler.h"
 
-float accRange;
-float gyroRange;
+static float accRange;
+static float gyroRange;
 
 bool MPU6050_Initialize(int AccelScale, int GyroScale){
 	uint8_t tempRegVal;

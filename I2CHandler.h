@@ -2,6 +2,7 @@
 #define I2CHANDLER_H
 
 #include "stdint.h"
+#include "stdbool.h"
 
 void I2cInitialize();
 

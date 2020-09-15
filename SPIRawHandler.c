@@ -9,7 +9,7 @@ extern SPI_HandleTypeDef hspi2;
 //#define DEBUG_PRINT
 
 #ifdef DEBUG_PRINT
-int last_print = 0,r = 1,w = 2,rs = 3, ws = 4;
+static int last_print = 0,r = 1,w = 2,rs = 3, ws = 4;
 #endif
 
 void SpiRawInitialize(){

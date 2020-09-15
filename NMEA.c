@@ -1,24 +1,24 @@
 #include "NMEA.h"
 
-uint16_t UTC_year = 0;
-uint8_t UTC_month = 0;
-uint8_t UTC_date = 0;
-uint8_t UTC_hour = 0;
-uint8_t UTC_minute = 0;
-uint8_t UTC_second = 0;
-bool positioning_available = false;
-bool utf_available = false;
-uint16_t latitude_ddd = 0;
-uint8_t latitude_mm = 0;
-float latitude_pt_mm = 0;
-char N_S = ' ';
-uint16_t longitude_ddd = 0;
-uint8_t longitude_mm = 0;
-float longitude_pt_mm = 0;
-char E_W = ' ';
-uint16_t height_above_sea_level = 0;
-uint16_t height_geoid = 0;
-uint8_t active_satellite_num = 0;
+static uint16_t UTC_year = 0;
+static uint8_t UTC_month = 0;
+static uint8_t UTC_date = 0;
+static uint8_t UTC_hour = 0;
+static uint8_t UTC_minute = 0;
+static uint8_t UTC_second = 0;
+static bool positioning_available = false;
+static bool utf_available = false;
+static uint16_t latitude_ddd = 0;
+static uint8_t latitude_mm = 0;
+static float latitude_pt_mm = 0;
+static char N_S = ' ';
+static uint16_t longitude_ddd = 0;
+static uint8_t longitude_mm = 0;
+static float longitude_pt_mm = 0;
+static char E_W = ' ';
+static uint16_t height_above_sea_level = 0;
+static uint16_t height_geoid = 0;
+static uint8_t active_satellite_num = 0;
 
 char Buffer[90];
 char *BufPtr = Buffer;

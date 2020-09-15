@@ -7,10 +7,10 @@
 extern UART_HandleTypeDef huart1;
 #endif
 
-IM920_Setting setting;
+static IM920_Setting setting;
 
-uint8_t receivedMessage[BUFFER_LEN],*bufferPtr;
-bool waitingResp = false,waitingMssg = false;
+static uint8_t receivedMessage[BUFFER_LEN],*bufferPtr;
+static bool waitingResp = false,waitingMssg = false;
 
 //----------------------------------------------
 void UartWriteMulti(uint8_t *data,uint8_t len){
