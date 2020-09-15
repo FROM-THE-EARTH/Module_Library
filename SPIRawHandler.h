@@ -1,6 +1,8 @@
 #ifndef INC_SPIRAWHANDLER_H_
 #define INC_SPIRAWHANDLER_H_
 
+#include "stdint.h"
+
 void SpiRawInitialize();
 
 void SpiRawWrite(uint8_t data);

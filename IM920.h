@@ -1,6 +1,9 @@
 #ifndef INC_IM920_H_
 #define INC_IM920_H_
 
+#include "stdint.h"
+#include "stdbool.h"
+
 #define IM920_Mode_HighSpeed 1
 #define IM920_Mode_LongRange 2
 

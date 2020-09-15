@@ -1,6 +1,9 @@
 #ifndef INC_NMEA_H_
 #define INC_NMEA_H_
 
+#include "stdint.h"
+#include "stdbool.h"
+
 void GPS_UART_Receive(char c);	//set UART rx interrupt
 void GPS_Get_UTC(uint16_t *year,uint8_t *month, uint8_t *date, uint8_t *hour, uint8_t *minute, uint8_t *second);
 bool GPS_Get_utfReady();
