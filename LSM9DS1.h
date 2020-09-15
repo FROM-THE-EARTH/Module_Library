@@ -1,6 +1,8 @@
 #ifndef INC_LSM9DS1_H_
 #define INC_LSM9DS1_H_
 
+#include "stdbool.h"
+
 #define LSM9DS1_M 0x1E
 #define LSM9DS1_AG 0x6B
 

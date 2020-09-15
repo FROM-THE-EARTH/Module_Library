@@ -1,6 +1,8 @@
 #ifndef INC_MPU6050_H_
 #define INC_MPU6050_H_
 
+#include "stdbool.h"
+
 #define MPU6050_ADDRESS 0x68
 
 #define MPU6050_WHO_AM_I 0x75

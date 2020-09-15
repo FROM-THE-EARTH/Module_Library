@@ -1,6 +1,8 @@
 #ifndef INC_LPS331AP_H_
 #define INC_LPS331AP_H_
 
+#include "stdbool.h"
+
 #define LPS331AP_ADDR0 0b1011100 //SA0=L(GND)
 #define LPS331AP_ADDR1 0b1011101 //SA0=H(VDD)
 #define LPS331AP_REF_P_XL 0x08

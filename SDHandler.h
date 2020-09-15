@@ -1,6 +1,9 @@
 #ifndef INC_SDHANDLER_H_
 #define INC_SDHANDLER_H_
 
+#include "stdbool.h"
+#include "stdint.h"
+
 typedef struct _SD_Card{
 	uint32_t sectors;
 	bool initialized;
