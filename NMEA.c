@@ -61,8 +61,8 @@ static void GPS_Update(){
 		if(valstr[0] != ',')dddmm_mmm(valstr,&data.latitude_ddd,&data.latitude_mm,&data.latitude_pt_mm);
 
 		ReadToComma(valstr);
-		if(valstr[0] == 'N')N_S = 'N';
-		else if(valstr[0] == 'S')N_S = 'S';
+		if(valstr[0] == 'N')data.N_S = 'N';
+		else if(valstr[0] == 'S')data.N_S = 'S';
 
 		ReadToComma(valstr);
 		if(valstr[0] != ',')dddmm_mmm(valstr,&data.longitude_ddd,&data.longitude_mm,&data.longitude_pt_mm);
@@ -139,7 +139,7 @@ void GPS_Get_Position_DMM(char *n_s,double *lat,char *e_w, double *lon){
 void GPS_Get_Position_DDD(char *n_s,double *lat,char *e_w, double *lon){
 	*n_s = data.N_S;
 	*lat = (double)data.latitude_ddd + ((double)data.latitude_mm + data.latitude_pt_mm) / 60.0;
-	*e_w = E_W;
+	*e_w = data.E_W;
 	*lon = (double)data.longitude_ddd + ((double)data.longitude_mm + data.longitude_pt_mm) / 60.0;
 }
 
