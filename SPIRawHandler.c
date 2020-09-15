@@ -1,7 +1,9 @@
 #include "SPIRawHandler.h"
 
+#ifdef STM32
 #include "main.h"
 extern SPI_HandleTypeDef hspi2;
+#endif
 
 //#define DMA_ENABLE
 //#define DEBUG_PRINT
@@ -20,20 +22,26 @@ void SpiRawWrite(uint8_t data){
 	printf(" %x",data);
 	last_print = w;
 #endif
+
+#ifdef STM32
 #ifdef DMA_ENABLE
 	HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
 	while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY);
 #else
 	HAL_SPI_Transmit(&hspi2, &data, 1, 100);
 #endif
+#endif
 }
 uint8_t SpiRawRead(){
 	uint8_t data,dummy = 0xFF;
+
+#ifdef STM32
 #ifdef DMA_ENABLE
 	HAL_SPI_TransmitReceive_DMA(&hspi2, &dummy, &data, 1);
 	while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY);
 #else
 	HAL_SPI_TransmitReceive(&hspi2, &dummy, &data, 1, 100);
+#endif
 #endif
 
 #ifdef DEBUG_PRINT
@@ -52,19 +60,24 @@ void SpiRawWriteMulti(uint8_t *data,uint16_t count){
 	last_print = ws;
 #endif
 
+#ifdef STM32
 #ifdef DMA_ENABLE
 	HAL_SPI_Transmit_DMA(&hspi2, data, count);
 	while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY);
 #else
 	HAL_SPI_Transmit(&hspi2, data, count, 100);
 #endif
+#endif
 }
+
 void SpiRawReadMulti(uint8_t *data,uint16_t count){
+#ifdef STM32
 #ifdef DMA_ENABLE
 	HAL_SPI_Receive_DMA(&hspi2, data, count);
 	while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY);
 #else
 	HAL_SPI_Receive(&hspi2, data, count,100);
+#endif
 #endif
 
 #ifdef DEBUG_PRINT
@@ -76,7 +89,9 @@ void SpiRawReadMulti(uint8_t *data,uint16_t count){
 
 void SpiRawAsertSS(){
 	for(uint8_t i = 0;i < 1;)if(SpiRawRead() == 0xFF)i++;
+#ifdef STM32
 	HAL_GPIO_WritePin(SDSS_GPIO_Port,SDSS_Pin,0);
+#endif
 
 #ifdef DEBUG_PRINT
 	printf("\n------ASSERT------");
@@ -87,7 +102,9 @@ void SpiRawAsertSS(){
 
 void SpiRawDeAsertSS(){
 	for(uint8_t i = 0;i < 1;)if(SpiRawRead() == 0xFF)i++;
+#ifdef STM32
 	HAL_GPIO_WritePin(SDSS_GPIO_Port,SDSS_Pin,1);
+#endif
 
 #ifdef DEBUG_PRINT
 	printf("\n------DEASSERT------");

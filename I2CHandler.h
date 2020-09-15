@@ -1,8 +1,6 @@
 #ifndef I2CHANDLER_H
 #define I2CHANDLER_H
 
-#include "main.h"
-
 void I2cInitialize();
 
 void I2cWriteByte(uint8_t add, uint8_t reg, uint8_t data);

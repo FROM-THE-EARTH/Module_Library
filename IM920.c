@@ -2,8 +2,10 @@
 
 #define BUFFER_LEN 100
 
+#ifdef STM32
 #include "main.h"
 extern UART_HandleTypeDef huart1;
+#endif
 
 IM920_Setting setting;
 
@@ -12,11 +14,15 @@ bool waitingResp = false,waitingMssg = false;
 
 //----------------------------------------------
 void UartWriteMulti(uint8_t *data,uint8_t len){
+#ifdef STM32
 	HAL_UART_Transmit(&huart1, data, len, 100);
+#endif
 }
 
 bool CheckBusy(){
+#ifdef STM32
 	return (HAL_GPIO_ReadPin(IMBUSY_GPIO_Port,IMBUSY_Pin) == GPIO_PIN_SET);
+#endif
 }
 
 void IM920_UART_Receive(uint8_t c){
@@ -32,7 +38,9 @@ void IM920_UART_Receive(uint8_t c){
 }
 
 static void Delay(uint16_t ms){
+#ifdef STM32
 	HAL_Delay(1);
+#endif
 }
 //----------------------------------------------
 
