@@ -6,25 +6,25 @@
 
 typedef struct _NMEA_Data
 {
-    uint16_t UTC_year = 0;
-    uint8_t UTC_month = 0;
-    uint8_t UTC_date = 0;
-    uint8_t UTC_hour = 0;
-    uint8_t UTC_minute = 0;
-    uint8_t UTC_second = 0;
-    bool positioning_available = false;
-    bool utf_available = false;
-    uint16_t latitude_ddd = 0;
-    uint8_t latitude_mm = 0;
-    float latitude_pt_mm = 0;
-    char N_S = ' ';
-    uint16_t longitude_ddd = 0;
-    uint8_t longitude_mm = 0;
-    float longitude_pt_mm = 0;
-    char E_W = ' ';
-    uint16_t height_above_sea_level = 0;
-    uint16_t height_geoid = 0;
-    uint8_t active_satellite_num = 0;
+    uint16_t UTC_year;
+    uint8_t UTC_month;
+    uint8_t UTC_date;
+    uint8_t UTC_hour;
+    uint8_t UTC_minute;
+    uint8_t UTC_second;
+    bool positioning_available;
+    bool utf_available;
+    uint16_t latitude_ddd;
+    uint8_t latitude_mm;
+    float latitude_pt_mm;
+    char N_S;
+    uint16_t longitude_ddd;
+    uint8_t longitude_mm;
+    float longitude_pt_mm;
+    char E_W;
+    uint16_t height_above_sea_level;
+    uint16_t height_geoid;
+    uint8_t active_satellite_num;
 }NMEA_Data;
 
 void GPS_UART_Receive(char c);	//set UART rx interrupt

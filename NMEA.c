@@ -1,6 +1,6 @@
 #include "NMEA.h"
 
-static NMEA_Data data;
+static NMEA_Data data = {0,0,0,0,0,0,false,false,0,0,0,' ',0,0,0,' ',0,0,0};
 
 char Buffer[90];
 char *BufPtr = Buffer;
