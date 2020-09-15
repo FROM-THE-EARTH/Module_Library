@@ -1,19 +1,8 @@
-/*
- * IM920.h
- *
- *  Created on: Jul 12, 2020
- *      Author: oku_d
- */
-
 #ifndef INC_IM920_H_
 #define INC_IM920_H_
 
-#include "stdbool.h"
-#include "stdint.h"
-
-#define IM920_Mode_HighSpeed
-#define IM920_Mode_LongRange
-
+#define IM920_Mode_HighSpeed 1
+#define IM920_Mode_LongRange 2
 
 typedef struct{
 	uint16_t ID;	//ID
@@ -58,4 +47,4 @@ bool IM920_Send(uint8_t *data,uint16_t len);
 bool IM920_NewMessage();
 void IM920_Read(uint8_t *data);
 
-#endif /* INC_IM920_H_ */
+#endif

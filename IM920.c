@@ -1,15 +1,8 @@
-/*
- * IM920.c
- *
- *  Created on: Jul 12, 2020
- *      Author: oku_d
- */
-
 #include "IM920.h"
-#include "main.h"
 
 #define BUFFER_LEN 100
 
+#include "main.h"
 extern UART_HandleTypeDef huart1;
 
 IM920_Setting setting;
@@ -17,23 +10,31 @@ IM920_Setting setting;
 uint8_t receivedMessage[BUFFER_LEN],*bufferPtr;
 bool waitingResp = false,waitingMssg = false;
 
+//----------------------------------------------
 void UartWriteMulti(uint8_t *data,uint8_t len){
 	HAL_UART_Transmit(&huart1, data, len, 100);
 }
 
 bool CheckBusy(){
-	return (HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15) == GPIO_PIN_SET);
+	return (HAL_GPIO_ReadPin(IMBUSY_GPIO_Port,IMBUSY_Pin) == GPIO_PIN_SET);
 }
 
 void IM920_UART_Receive(uint8_t c){
 	if(waitingResp){
 		*bufferPtr++ = c;
-		if(c == '\n')waitingResp = false;
+		if(c == '\n'){
+			waitingResp = false;
+		}
 	}else if(waitingMssg){
 		*bufferPtr++ = c;
 		if(c == '\n')waitingMssg = false;
 	}
 }
+
+static void Delay(uint16_t ms){
+	HAL_Delay(1);
+}
+//----------------------------------------------
 
 static uint8_t ConvChar16ToInt16(char c){
 	if('0' <= c && c <= '9')return c - '0';
@@ -64,23 +65,29 @@ static void StartReceive(){
 	waitingMssg = true;
 }
 
-static void WaitResponce(uint8_t *buffer){
+static bool WaitResponce(uint8_t *buffer){
 	bufferPtr = buffer;
 	waitingMssg = false;
 	waitingResp = true;
-	while(waitingResp);
-	StartReceive();
-	return;
+
+	for(uint32_t i = 0;i < 0x2000;i++){
+		if(!waitingResp){
+			StartReceive();
+			return true;
+		}
+		Delay(1);
+	}
+	return false;
 }
 
 static bool ReadParam(const char* cmd,uint16_t *param){
 	if(CheckBusy())return false;
 
 	uint8_t _cmd[] = {cmd[0],cmd[1],cmd[2],cmd[3],'\r','\n'};
-	UartWriteMulti(_cmd,6);
-
 	uint8_t responceBuffer[20];
-	WaitResponce(responceBuffer);
+
+	UartWriteMulti(_cmd,6);
+	if(!WaitResponce(responceBuffer))return false;
 
 	if(responceBuffer[0] == 'N' && responceBuffer[1] == 'G'){
 		return false;
@@ -118,7 +125,7 @@ static bool SetParam(const char* cmd,uint16_t param,uint8_t param_len){
 	UartWriteMulti((uint8_t*)"\r\n",2);
 
 	uint8_t responceBuffer[5];
-	WaitResponce(responceBuffer);
+	if(!WaitResponce(responceBuffer))return false;
 
 	if(responceBuffer[0] == 'N' && responceBuffer[1] == 'G')return false;
 	else return true;
@@ -179,15 +186,17 @@ bool IM920_UnSleep(){
 
 bool IM920_Send(uint8_t *data,uint16_t len){
 	while(CheckBusy());
+	uint8_t _len;
+	for(_len = 0;_len<len&&_len<64&&data[len] != '\r'&&data[len] != '\n';_len++);
 	UartWriteMulti((uint8_t*)"TXDA ",5);
-	UartWriteMulti(data,len);
+	UartWriteMulti(data,_len);
 	UartWriteMulti((uint8_t*)"\r\n",2);
 
 	uint8_t responceBuffer[5];
-	WaitResponce(responceBuffer);
+	if(!WaitResponce(responceBuffer))return false;
 
 	if(responceBuffer[0] == 'N' && responceBuffer[1] == 'G')return false;
-	else return true;
+	return true;
 }
 
 bool IM920_NewMessage(){

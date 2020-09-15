@@ -1,11 +1,4 @@
-/*
- * NMEA.c
- *
- *  Created on: 2020/07/09
- *      Author: oku_d
- */
 #include "NMEA.h"
-#include "stdlib.h"
 
 uint16_t UTC_year = 0;
 uint8_t UTC_month = 0;
@@ -14,6 +7,7 @@ uint8_t UTC_hour = 0;
 uint8_t UTC_minute = 0;
 uint8_t UTC_second = 0;
 bool positioning_available = false;
+bool utf_available = false;
 uint16_t latitude_ddd = 0;
 uint8_t latitude_mm = 0;
 float latitude_pt_mm = 0;
@@ -28,6 +22,21 @@ uint8_t active_satellite_num = 0;
 
 char Buffer[90];
 char *BufPtr = Buffer;
+
+//-----------------------------------------
+void GPS_UART_Receive(char c){
+	if(c == '$'){
+		BufPtr = Buffer;
+	}
+
+	*BufPtr++ = c;
+
+	if(c == '\n'){
+		*BufPtr++ = '\0';
+		GPS_Update();
+	}
+}
+//-----------------------------------------
 
 static void ReadToComma(char *valstr){
     do{ *(valstr++) = *BufPtr++; }while(*(valstr - 1) != ',');
@@ -116,19 +125,8 @@ static void GPS_Update(){
 
 		ReadToComma(valstr);
 		if(valstr[0] != ',')UTC_year = (valstr[0] - '0') * 1000 + (valstr[1] - '0') * 100 + (valstr[2] - '0') * 10  + (valstr[3] - '0');
-	}
-}
 
-void GPS_UART_Receive(char c){
-	if(c == '$'){
-		BufPtr = Buffer;
-	}
-
-	*BufPtr++ = c;
-
-	if(c == '\n'){
-		*BufPtr++ = '\0';
-		GPS_Update();
+		utf_available = true;
 	}
 }
 
@@ -140,9 +138,15 @@ void GPS_Get_UTC(uint16_t *year,uint8_t *month, uint8_t *date, uint8_t *hour, ui
 	*minute = UTC_minute;
 	*second = UTC_second;
 }
+
+bool GPS_Get_utfReady(){
+	return utf_available;
+}
+
 bool GPS_Get_isReady(){
 	return positioning_available;
 }
+
 void GPS_Get_Position_DMM(char *n_s,double *lat,char *e_w, double *lon){
 	*n_s = N_S;
 	*lat = (double)(latitude_ddd * 100 + latitude_mm) + latitude_pt_mm;

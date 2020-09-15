@@ -1,16 +1,5 @@
-/*
- * SD.h
- *
- *  Created on: Jun 12, 2020
- *      Author: oku_d
- */
-
-#ifndef SDHANDLER_H_
-#define SDHANDLER_H_
-
-#include "stdbool.h"
-#include "stdint.h"
-#include "SPIHandler.h"
+#ifndef INC_SDHANDLER_H_
+#define INC_SDHANDLER_H_
 
 typedef struct _SD_Card{
 	uint32_t sectors;
@@ -18,19 +7,14 @@ typedef struct _SD_Card{
 	bool is_SDHC;
 }SD_Card;
 
-bool SDInitialize();
+bool SD_Initialize();
 
-uint32_t SDReadOCR();
-uint16_t SDReadStatus();
-void SDReadCSD(uint8_t *data);
-uint32_t SDReadCONF();
+bool SD_WriteMulti(uint32_t sector, uint8_t *data, uint16_t count);
 
-bool SDWrites(uint32_t sector, uint8_t *data, uint16_t count);
+bool SD_ReadMulti(uint32_t sector, uint8_t *data, uint16_t count);
 
-bool SDReads(uint32_t sector, uint8_t *data, uint16_t count);
+bool SD_Write(uint32_t sector, uint8_t *data);
 
-bool SDWrite(uint32_t sector, uint8_t *data);
+bool SD_Read(uint32_t sector, uint8_t *data);
 
-bool SDRead(uint32_t sector, uint8_t *data);
-
-#endif /* SDHANDLER_H_ */
+#endif

@@ -1,15 +1,5 @@
-/*
- * SD.c
- *
- *  Created on: Jun 12, 2020
- *      Author: oku_d
- */
-
 #include "SDHandler.h"
-
-#ifndef NULL
-#define NULL ((void*)0)
-#endif
+#include "SPIRawHandler.h"
 
 SD_Card sd;
 
@@ -53,7 +43,10 @@ static uint8_t waitDataResponce(){
 static bool sendDataPacket(uint8_t *data){
 	sendToken(0xFC);
 
-	SpiRawWrites(data, 512);
+	SpiRawWriteMulti(data, 512);
+
+	SpiRawWrite(0xFF);
+	SpiRawWrite(0xFF);
 
 	uint8_t rsp = waitDataResponce();
 	waitBusyState();
@@ -61,7 +54,7 @@ static bool sendDataPacket(uint8_t *data){
 }
 static bool waitDataPacket(uint8_t *data){
 	if(waitToken() == 0xFE){
-		SpiRawReads(data, 512);
+		SpiRawReadMulti(data, 512);
 		SpiRawRead();
 		SpiRawRead();
 		return true;
@@ -126,18 +119,16 @@ static uint8_t CMD(uint8_t cmd, uint32_t arg, uint8_t *subrsp){
 static uint8_t ACMD(uint8_t cmd, uint32_t arg, uint8_t *subrsp){
 	uint8_t res;
 
-	SpiAsertSS();
 	res = CMD(55,0,NULL);
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 
-	SpiAsertSS();
+	SpiRawAsertSS();
 	res = CMD(cmd,arg,subrsp);
-	SpiDeAsertSS();
 
 	return res;
 }
 
-bool SDInitialize(){
+bool SD_Initialize(){
 
 	uint8_t rsp;
 
@@ -160,22 +151,22 @@ bool SDInitialize(){
 	SpiRawWrite(0xFF);
 
 	//--------------------------- CMD0 ---------------------------
-	SpiAsertSS();
+	SpiRawAsertSS();
 	rsp = CMD(0,0,NULL);
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 	if(rsp != 0x01)return false;
 	//--------------------------- CMD8 ---------------------------
-	SpiAsertSS();
+	SpiRawAsertSS();
 	uint8_t r7[4];
 	rsp = CMD(8,0x1AA,r7);
 	uint32_t R7 = ( r7[0] << 24 | r7[1] << 16 | r7[2] << 8 | r7[3] );
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 	if(rsp != 0x01 || (R7 & 0xFFF) != 0x1AA)return false;
 	//--------------------------- ACMD41 ---------------------------
-	for(uint8_t i = 0; i < 0xFF; i++){
-		SpiAsertSS();
+	for(uint8_t i = 0; i < 0xFF;i++){
+		SpiRawAsertSS();
 		rsp = ACMD(41,1<<30,NULL);
-		SpiDeAsertSS();
+		SpiRawDeAsertSS();
 		if(rsp != 0x01)break;
 	}
 
@@ -183,19 +174,19 @@ bool SDInitialize(){
 	else return false;
 
 	//--------------------------- CMD58 ---------------------------
-	SpiAsertSS();
+	SpiRawAsertSS();
 	uint8_t ocr[4];
 	rsp = CMD(58,0,ocr);
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 	uint32_t OCR = ( ocr[0] << 24 | ocr[1] << 16 | ocr[2] << 8 | ocr[3] );
 	if(((OCR >> 30) & 0x01) == 1)sd.is_SDHC = true;
 	else return false;
 
 	//--------------------------- CMD9 ---------------------------
-	SpiAsertSS();
+	SpiRawAsertSS();
 	uint8_t CSD[16];
 	rsp = CMD(9,0,CSD);
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 	if(rsp == 0x00){
 		uint32_t C_SIZE = (((CSD[7] & 0b111111) << 16) | (CSD[8] << 8) | CSD[9]);
 		sd.sectors = 512 * C_SIZE;
@@ -205,79 +196,58 @@ bool SDInitialize(){
 	return true;
 }
 
-//----------------------------------------------------------------------------------------------------------------	未完成!!!
-bool SDWrites(uint32_t sector, uint8_t *data, uint16_t count){
+//----------------------------------------------------------------------------------------------------------------
+bool SD_WriteMulti(uint32_t sector, uint8_t *data, uint16_t count){
 	uint8_t rsp;
 
-	SpiAsertSS();
+	SpiRawAsertSS();
 
 	rsp = CMD(25,sector,NULL);
 	if(rsp == 0x00){
-		for(uint32_t i = 0;i < count;i++){
-			sendDataPacket(data + i * 512);
+		for(uint16_t i = 0;i < count;i++){
+			if(!sendDataPacket(data + i * 512))break;
 		}
 
 		sendToken(0xFD);
-		rsp = waitDataResponce();
+		SpiRawRawWrite(0xFF);
 		waitBusyState();
-		if(rsp == 0xE5)rsp = 0x00;
-
 	}
 
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
+
 	return (rsp == 0x00);
 }
 
-//---------------------------------------------------------------------------------------------------------------- 未完成!!!
-bool SDReads(uint32_t sector, uint8_t *data, uint16_t count){
+//---------------------------------------------------------------------------------------------------------------- Unavailable!!!
+bool SD_ReadMulti(uint32_t sector, uint8_t *data, uint16_t count){
 	bool res = true;
 	uint8_t rsp;
 
-	SpiAsertSS();
-	rsp = CMD(18,sector,NULL);
+	SpiRawAsertSS();
 
-	SpiDeAsertSS();
-	SpiAsertSS();
+	rsp = CMD(18,sector,NULL);
 	if(rsp == 0x00){
-		/*
 		for(uint16_t i = 0;i < count;i++){
 			waitDataPacket(&data[i * 512]);
 		}
-
-		waitToken();
 
 		rsp = CMD(12,0,NULL);
 		if(rsp != 0x00){
 			res = false;
 		}
-		waitBusyState();*/
-
-		for(uint16_t i = 0;;i++){
-			if(waitToken() == 0xFE){
-				SpiRawReads(&data[512 * i],512);
-			}
-
-			if(i == count - 1){
-				CMD(12,0,NULL);
-				break;
-			}
-			else{
-				SpiRawRead();
-				SpiRawRead();
-			}
-		}
+		waitBusyState();
 	}else res = false;
 
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 	return res;
 }
 
 //----------------------------------------------------------------------------------------------------------------
-bool SDWrite(uint32_t sector, uint8_t *data){
+bool SD_Write(uint32_t sector, uint8_t *data){
 	bool res = true;
 	uint8_t rsp;
 
-	SpiAsertSS();
+	SpiRawAsertSS();
 
 	rsp = CMD(24,sector,NULL);
 
@@ -285,7 +255,7 @@ bool SDWrite(uint32_t sector, uint8_t *data){
 
 		sendToken(0xFE);
 
-		SpiRawWrites(data,512);
+		SpiRawWriteMulti(data,512);
 
 		SpiRawWrite(0xFF);
 		SpiRawWrite(0xFF);
@@ -296,17 +266,17 @@ bool SDWrite(uint32_t sector, uint8_t *data){
 
 	}else res = false;
 
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 
 	return res;
 }
 
 //----------------------------------------------------------------------------------------------------------------
-bool SDRead(uint32_t sector, uint8_t *data){
+bool SD_Read(uint32_t sector, uint8_t *data){
 	bool res = true;
 	uint8_t rsp;
 
-	SpiAsertSS();
+	SpiRawAsertSS();
 
 	rsp = CMD(17,sector,NULL);
 
@@ -316,6 +286,6 @@ bool SDRead(uint32_t sector, uint8_t *data){
 		}else res = false;
 	}else res = false;
 
-	SpiDeAsertSS();
+	SpiRawDeAsertSS();
 	return res;
 }
