@@ -1,21 +1,25 @@
 /*
-
 	2019 Oku Dan / oku_dan@yahoo.co.jp
-
 	MPU9250用のI2C版ライブラリです.
 	使用する際はデバイスのSDAとSCLをセンサに接続してください.
-
 	1.MPU9250型クラスを作成
 	2.Initialize()でセンサ初期化
 	3.ReadAccGyr(),ReadMag()で読み出し
-
 	内部DMPを利用してかなり正確なQuaternionを出力してくれる裏ワザ的手法がありますが、かなりの魔境なので追加しません.
 	利用したい方は自分で調べてください.
+
+	追加編集
+	2020/12/19 Ekyu Kondo : Mbed向けにコードを修正
 */
 
 #include "I2CHandler.h"
 
+#ifdef ARDUINO
 #define MPU9250_ADDRESS 0x68
+#endif
+#ifdef MBED
+#define MPU9250_ADDRESS 0x68 << 1
+#endif
 
 #define MPU9250_WHO_AM_I 0x75
 #define MPU9250_WHO_AM_I_DEFAULT 0x71
@@ -50,7 +54,12 @@
 #define MPU9250_GYRO_ZOUT_H 0x47
 #define MPU9250_GYRO_ZOUT_L 0x48
 
+#ifdef ARDUINO
 #define AK8963_ADDRESS 0x0C
+#endif
+#ifdef MBED
+#define AK8963_ADDRESS 0x0C << 1
+#endif
 #define AK8963_WIM 0x00
 #define AK8963_WHI_DEFAULT 0x48
 #define AK8963_CNTL1 0x0A
@@ -68,7 +77,6 @@
 #define AK8963_HZL 0x07
 #define AK8963_HZH 0x08
 
-
 class MPU9250
 {
 private:
@@ -77,6 +85,17 @@ private:
 	float mAdjx;
 	float mAdjy;
 	float mAdjz;
+
+#ifdef MBED
+	I2C i2c;
+#endif
+
+	void SetI2c()
+	{
+#ifdef MBED
+		I2cSetI2c(&i2c);
+#endif
+	}
 
 public:
 	bool Initialize();
@@ -87,58 +106,21 @@ public:
 	bool ReadMag(float *mx, float *my, float *mz);
 };
 
-
-/*
-#include <Wire.h>
-
-void I2cWriteByte(uint8_t add, uint8_t reg, uint8_t data)
+bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate)
 {
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.write(data);
-	Wire.endTransmission();
-}
-
-uint8_t I2cReadByte(uint8_t add, uint8_t reg)
-{
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.endTransmission(false);
-	Wire.requestFrom(add, (uint8_t)1);
-	uint8_t data = Wire.read();
-	return data;
-}
-
-void I2cReadBytes(uint8_t add, uint8_t reg, uint8_t *data, uint8_t count)
-{
-	Wire.beginTransmission(add);
-	Wire.write(reg);
-	Wire.endTransmission(false);
-	Wire.requestFrom(add, count);
-	for (int i = 0; i < count; i++)
-	{
-		data[i] = Wire.read();
-	}
-}
-
-void I2cInitialize(){
-	Wire.begin();
-	Wire.setClock( 400000L );
-}
-*/
-
-bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
+	SetI2c();
 	uint8_t tempRegVal;
 	I2cInitialize();
 	tempRegVal = I2cReadByte(MPU9250_ADDRESS, MPU9250_WHO_AM_I);
-	if(tempRegVal != MPU9250_WHO_AM_I_DEFAULT && tempRegVal != MPU9255_WHO_AM_I_DEFAULT)return false;
+	if (tempRegVal != MPU9250_WHO_AM_I_DEFAULT && tempRegVal != MPU9255_WHO_AM_I_DEFAULT)
+		return false;
 
-	I2cWriteByte(MPU9250_ADDRESS, MPU9250_PWR_MGMT_1, 0);				 //スリープモードを解除
+	I2cWriteByte(MPU9250_ADDRESS, MPU9250_PWR_MGMT_1, 0); //スリープモードを解除
 	switch (AccelScale)
 	{
 	case 2:
 		tempRegVal = MPU9250_ACCEL_FS_SEL_2G;
-		accRange = 2.0;												 //計算で使用するので，選択したレンジを入力する
+		accRange = 2.0; //計算で使用するので，選択したレンジを入力する
 		break;
 	case 4:
 		tempRegVal = MPU9250_ACCEL_FS_SEL_4G;
@@ -147,19 +129,19 @@ bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	case 8:
 		tempRegVal = MPU9250_ACCEL_FS_SEL_8G;
 		accRange = 8.0;
-		break;	
+		break;
 	default:
 		tempRegVal = MPU9250_ACCEL_FS_SEL_16G;
 		accRange = 16.0;
 		break;
 	}
-	I2cWriteByte(MPU9250_ADDRESS, MPU9250_ACCEL_CONFIG, tempRegVal);		 //加速度センサの測定レンジの設定
+	I2cWriteByte(MPU9250_ADDRESS, MPU9250_ACCEL_CONFIG, tempRegVal); //加速度センサの測定レンジの設定
 
 	switch (GyroScale)
 	{
 	case 250:
 		tempRegVal = MPU9250_GYRO_FS_SEL_250DPS;
-		gyroRange = 250.0;												 //計算で使用するので，選択したレンジを入力する
+		gyroRange = 250.0; //計算で使用するので，選択したレンジを入力する
 		break;
 	case 500:
 		tempRegVal = MPU9250_GYRO_FS_SEL_500DPS;
@@ -176,14 +158,13 @@ bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	}
 	I2cWriteByte(MPU9250_ADDRESS, MPU9250_GYRO_CONFIG, tempRegVal); //ジャイロセンサの測定レンジの設定
 
-	accRange /= 32768.0;	//計算用の係数に変換
+	accRange /= 32768.0; //計算用の係数に変換
 	gyroRange /= 32768.0;
 
-	I2cWriteByte(MPU9250_ADDRESS, MPU9250_INT_PIN_CFG, 0x02);				 //bypass mode(磁気センサが使用出来るようになる)
-	delay(5);
+	I2cWriteByte(MPU9250_ADDRESS, MPU9250_INT_PIN_CFG, 0x02); //bypass mode(磁気センサが使用出来るようになる)
 	tempRegVal = I2cReadByte(AK8963_ADDRESS, AK8963_WIM);
-	Serial.print(tempRegVal, HEX);
-	if(tempRegVal != AK8963_WHI_DEFAULT)return false;
+	if (tempRegVal != AK8963_WHI_DEFAULT)
+		return false;
 
 	switch (MagnetRate)
 	{
@@ -203,24 +184,9 @@ bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	mAdjy = ((float)asay - 128.0f) * 0.5f / 128.0f + 1.0f;
 	mAdjz = ((float)asaz - 128.0f) * 0.5f / 128.0f + 1.0f;
 
-	mAdjx *= 4921.0f / 32768.0f;	//計算用の係数に変換
-	mAdjy *= 4921.0f / 32768.0f;	//計算用の係数に変換
-	mAdjz *= 4921.0f / 32768.0f;	//計算用の係数に変換
-
-
-	while (1)
-	{
-		float x, y, z;
-		ReadMag(&x, &y, &z);
-		Serial.print(x, 6);
-		Serial.print(",");
-		Serial.print(y, 6);
-		Serial.print(",");
-		Serial.print(z, 6);
-		Serial.println(",");
-		delay(30);
-	}
-	
+	mAdjx *= 4921.0f / 32768.0f; //計算用の係数に変換
+	mAdjy *= 4921.0f / 32768.0f; //計算用の係数に変換
+	mAdjz *= 4921.0f / 32768.0f; //計算用の係数に変換
 
 	return true;
 }
@@ -230,7 +196,9 @@ bool MPU9250::Initialize()
 	return Initialize(16, 2000, 100);
 }
 
-void MPU9250::ReadAccGyr(float *ax, float *ay, float *az, float *gx, float *gy, float *gz){
+void MPU9250::ReadAccGyr(float *ax, float *ay, float *az, float *gx, float *gy, float *gz)
+{
+	SetI2c();
 	uint8_t AccGyroTemp[14];
 	I2cReadBytes(MPU9250_ADDRESS, MPU9250_ACCEL_XOUT_H, AccGyroTemp, 14);
 	*ax = (int16_t)(AccGyroTemp[0] << 8 | AccGyroTemp[1]) * accRange;
@@ -242,15 +210,18 @@ void MPU9250::ReadAccGyr(float *ax, float *ay, float *az, float *gx, float *gy, 
 	*gz = (int16_t)(AccGyroTemp[12] << 8 | AccGyroTemp[13]) * gyroRange;
 }
 
-void MPU9250::ReadAcc(float *ax, float *ay, float *az){
+void MPU9250::ReadAcc(float *ax, float *ay, float *az)
+{
+	SetI2c();
 	uint8_t AccTemp[6];
 	I2cReadBytes(MPU9250_ADDRESS, MPU9250_ACCEL_XOUT_H, AccTemp, 6);
 	*ax = (int16_t)(AccTemp[0] << 8 | AccTemp[1]) * accRange;
 	*ay = (int16_t)(AccTemp[2] << 8 | AccTemp[3]) * accRange;
 	*az = (int16_t)(AccTemp[4] << 8 | AccTemp[5]) * accRange;
 }
-void MPU9250::ReadGyr(float *gx, float *gy, float *gz){
-	
+void MPU9250::ReadGyr(float *gx, float *gy, float *gz)
+{
+	SetI2c();
 	uint8_t GyroTemp[6];
 	I2cReadBytes(MPU9250_ADDRESS, MPU9250_GYRO_XOUT_H, GyroTemp, 6);
 	*gx = (int16_t)(GyroTemp[0] << 8 | GyroTemp[1]) * gyroRange;
@@ -258,15 +229,20 @@ void MPU9250::ReadGyr(float *gx, float *gy, float *gz){
 	*gz = (int16_t)(GyroTemp[4] << 8 | GyroTemp[5]) * gyroRange;
 }
 
-bool MPU9250::ReadMag(float *mx, float *my, float *mz){
+bool MPU9250::ReadMag(float *mx, float *my, float *mz)
+{
+	SetI2c();
 	uint8_t ST1Bit;
 	ST1Bit = I2cReadByte(AK8963_ADDRESS, AK8963_ST1);
-	if ((ST1Bit & 0x01)){
+	if ((ST1Bit & 0x01))
+	{
 		uint8_t magneticData[7];
 		I2cReadBytes(AK8963_ADDRESS, AK8963_HXL, magneticData, 7);
 		*mx = ((int16_t)((magneticData[3] << 8) | magneticData[2])) * mAdjy;
 		*my = ((int16_t)((magneticData[1] << 8) | magneticData[0])) * mAdjx;
 		*mz = -((int16_t)((magneticData[5] << 8) | magneticData[4])) * mAdjz;
 		return true;
-	}else return false;
+	}
+	else
+		return false;
 }
