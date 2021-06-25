@@ -207,21 +207,6 @@ bool MPU9250::Initialize(int AccelScale, int GyroScale, int MagnetRate){
 	mAdjy *= 4921.0f / 32768.0f;	//計算用の係数に変換
 	mAdjz *= 4921.0f / 32768.0f;	//計算用の係数に変換
 
-
-	while (1)
-	{
-		float x, y, z;
-		ReadMag(&x, &y, &z);
-		Serial.print(x, 6);
-		Serial.print(",");
-		Serial.print(y, 6);
-		Serial.print(",");
-		Serial.print(z, 6);
-		Serial.println(",");
-		delay(30);
-	}
-	
-
 	return true;
 }
 
