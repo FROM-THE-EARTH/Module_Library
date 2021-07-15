@@ -1,7 +1,8 @@
 #ifndef I2C2HANDLER_H
 #define I2C2HANDLER_H
 
-#include "main.h"
+#include "stdint.h"
+#include "stdbool.h"
 
 void I2c2Initialize();
 

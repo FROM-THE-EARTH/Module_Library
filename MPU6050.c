@@ -1,5 +1,5 @@
 #include "MPU6050.h"
-#include "I2CHandler.h"
+#include "I2C1Handler.h"
 
 static float accRange;
 static float gyroRange;

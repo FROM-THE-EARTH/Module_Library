@@ -1,6 +1,9 @@
 #include "I2C2Handler.h"
 
+#ifdef STM32
+#include "main.h"
 extern I2C_HandleTypeDef hi2c2;
+#endif
 
 static bool initialized = false;
 

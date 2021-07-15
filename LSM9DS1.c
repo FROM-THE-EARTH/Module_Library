@@ -1,5 +1,5 @@
 #include "LSM9DS1.h"
-#include "I2CHandler.h"
+#include "I2C1Handler.h"
 
 static float AccelSensitivity;
 static float GyroSensitivity;

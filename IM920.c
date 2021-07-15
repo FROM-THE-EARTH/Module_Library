@@ -1,6 +1,6 @@
 #include "IM920.h"
 
-#define BUFFER_LEN 100
+#define IM920_BUFFER_LEN 256
 
 #ifdef STM32
 #include "main.h"
@@ -9,8 +9,17 @@ extern UART_HandleTypeDef huart1;
 
 static IM920_Setting setting;
 
-static uint8_t receivedMessage[BUFFER_LEN],*bufferPtr;
-static bool waitingResp = false,waitingMssg = false;
+static uint8_t messageBuffer[IM920_BUFFER_LEN];
+static uint8_t responceBuffer[20];
+
+static uint16_t messageBufferWritePosition = 0;
+static uint16_t messageBufferReadPosition = 0;
+static uint8_t responceBufferWritePosition = 0;
+
+static uint8_t newMessages = 0;
+
+static volatile bool waitingResp = false;
+static volatile bool waitingMssg = false;
 
 //----------------------------------------------
 void UartWriteMulti(uint8_t *data,uint8_t len){
@@ -19,21 +28,34 @@ void UartWriteMulti(uint8_t *data,uint8_t len){
 #endif
 }
 
-bool CheckBusy(){
+static bool CheckBusy(){
+	bool busy = false;
 #ifdef STM32
-	return (HAL_GPIO_ReadPin(IMBUSY_GPIO_Port,IMBUSY_Pin) == GPIO_PIN_SET);
+	busy = (HAL_GPIO_ReadPin(IMBUSY_GPIO_Port,IMBUSY_Pin) == GPIO_PIN_SET);
 #endif
+	return busy;
+}
+
+static void SoftReset(){
+#ifdef STM32
+	HAL_GPIO_WritePin(IMRESET_GPIO_Port,IMRESET_Pin,GPIO_PIN_SET);
+	HAL_GPIO_WritePin(IMRESET_GPIO_Port,IMRESET_Pin,GPIO_PIN_RESET);
+#endif
+	Delay(10);
 }
 
 void IM920_UART_Receive(uint8_t c){
 	if(waitingResp){
-		*bufferPtr++ = c;
-		if(c == '\n'){
-			waitingResp = false;
-		}
+		responceBuffer[responceBufferWritePosition++] = c;
+
+		if(c == '\n')waitingResp = false;
 	}else if(waitingMssg){
-		*bufferPtr++ = c;
-		if(c == '\n')waitingMssg = false;
+		messageBuffer[messageBufferWritePosition] = c;
+		
+		messageBufferWritePosition++;
+		if(messageBufferWritePosition >= IM920_BUFFER_LEN)messageBufferWritePosition = 0;
+
+		if(c == '\n')newMessages++;
 	}
 }
 
@@ -67,25 +89,28 @@ static char ConvInt16ToChar16(uint8_t t){
     else return 'A' - 10 + t;
 }
 
-static void StartReceive(){
-	bufferPtr = &receivedMessage[0];
-	waitingResp = false;
+static void WaitMessage(){
 	waitingMssg = true;
 }
 
-static bool WaitResponce(uint8_t *buffer){
-	bufferPtr = buffer;
-	waitingMssg = false;
+static bool WaitResponce(){
+	responceBufferWritePosition = 0;
+	for(int i = 0;i < sizeof(responceBuffer);i++)responceBuffer[i] = 0;
+
 	waitingResp = true;
 
+	bool res = false;
 	for(uint32_t i = 0;i < 0x2000;i++){
 		if(!waitingResp){
-			StartReceive();
-			return true;
+			res = true;
+			break;
+		}else{
+			Delay(1);
 		}
-		Delay(1);
 	}
-	return false;
+
+	waitingResp = false;
+	return res;
 }
 
 static bool ReadParam(const char* cmd,uint16_t *param){
@@ -109,37 +134,37 @@ static bool ReadParam(const char* cmd,uint16_t *param){
 static bool SetParam(const char* cmd,uint16_t param,uint8_t param_len){
 	if(CheckBusy())return false;
 
-	UartWriteMulti((uint8_t*)cmd,4);
-	if(param_len == 2){
-		uint8_t param_str[3];
-		param_str[0] = ' ';
-		param_str[1] = ConvInt16ToChar16(param%0x100/0x10);
-		param_str[2] = ConvInt16ToChar16(param%0x10);
-		UartWriteMulti(param_str,3);
+	uint8_t _cmd[11] = {cmd[0],cmd[1],cmd[2],cmd[3]};
+	if(param_len == 1){
+		_cmd[4] = ' ';
+		_cmd[5] = param;
+		_cmd[6] = '\r';
+		_cmd[7] = '\n';
+	}else if(param_len == 2){
+		_cmd[4] = ' ';
+		_cmd[5] = ConvInt16ToChar16(param%0x100/0x10);
+		_cmd[6] = ConvInt16ToChar16(param%0x10);
+		_cmd[7] = '\r';
+		_cmd[8] = '\n';
 	}else if(param_len == 4){
-		uint8_t param_str[5];
-		param_str[0] = ' ';
-		param_str[1] = ConvInt16ToChar16(param%0x10000/0x1000);
-		param_str[2] = ConvInt16ToChar16(param%0x1000/0x100);
-		param_str[3] = ConvInt16ToChar16(param%0x100/0x10);
-		param_str[4] = ConvInt16ToChar16(param%0x10);
-		UartWriteMulti(param_str,5);
-	}else if(param_len == 1){
-		uint8_t param_str[2];
-		param_str[0] = ' ';
-		param_str[1] = param;
-		UartWriteMulti(param_str,2);
+		_cmd[4] = ' ';
+		_cmd[5] = ConvInt16ToChar16(param%0x10000/0x1000);
+		_cmd[6] = ConvInt16ToChar16(param%0x1000/0x100);
+		_cmd[7] = ConvInt16ToChar16(param%0x100/0x10);
+		_cmd[8] = ConvInt16ToChar16(param%0x10);
+		_cmd[9] = '\r';
+		_cmd[10] = '\n';
 	}
-	UartWriteMulti((uint8_t*)"\r\n",2);
+	UartWriteMulti(_cmd,(param_len > 0?param_len + 7:6));
 
-	uint8_t responceBuffer[5];
-	if(!WaitResponce(responceBuffer))return false;
+	if(!WaitResponce())return false;
 
 	if(responceBuffer[0] == 'N' && responceBuffer[1] == 'G')return false;
 	else return true;
 }
 
 bool IM920_Initialize(){
+	SoftReset();
 	uint16_t temp;
 	if(ReadParam("RDID",&temp))setting.ID = temp;
 	else return false;
@@ -147,7 +172,10 @@ bool IM920_Initialize(){
 	else return false;
 	if(ReadParam("RDCH",&temp))setting.CH = temp;
 	else return false;
-	StartReceive();
+	if(!SetParam("ECIO",0,0))
+	return false;
+
+	WaitMessage();
 	return true;
 }
 
@@ -193,32 +221,37 @@ bool IM920_UnSleep(){
 }
 
 bool IM920_Send(uint8_t *data,uint16_t len){
-	while(CheckBusy());
+	if(CheckBusy())return false;
+
 	uint8_t _len;
 	for(_len = 0;_len<len&&_len<64&&data[len] != '\r'&&data[len] != '\n';_len++);
 	UartWriteMulti((uint8_t*)"TXDA ",5);
 	UartWriteMulti(data,_len);
 	UartWriteMulti((uint8_t*)"\r\n",2);
 
-	uint8_t responceBuffer[5];
-	if(!WaitResponce(responceBuffer))return false;
+	if(!WaitResponce())return false;
 
 	if(responceBuffer[0] == 'N' && responceBuffer[1] == 'G')return false;
 	return true;
 }
 
-bool IM920_NewMessage(){
-	return !waitingMssg;
+int IM920_NewMessages(){
+	return (int)newMessages;
 }
 
-void IM920_Read(uint8_t *data){
-	if(!waitingMssg){
-		for(uint16_t i = 0;i < BUFFER_LEN;i++){
-			data[i] = receivedMessage[i];
-			receivedMessage[i] = 0;
-			if(receivedMessage[i] == '\n')break;
+void IM920_Read(char *str){
+	if(newMessages > 0){
+		for(int i = 0;;i++){
+			str[i] = messageBuffer[messageBufferReadPosition];
+			
+			messageBufferReadPosition++;
+			if(messageBufferReadPosition >= IM920_BUFFER_LEN)messageBufferReadPosition = 0;
+			
+			if(str[i] == '\n'){
+				newMessages--;
+				break;
+			}
 		}
-		StartReceive();
 	}
 	return;
 }

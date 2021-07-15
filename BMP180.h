@@ -1,7 +1,7 @@
 #ifndef INC_BMP180_H_
 #define INC_BMP180_H_
 
-#include "main.h"
+#include "stdbool.h"
 
 #define BMP180_ADDR 0x77
 

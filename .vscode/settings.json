@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "bmp180.h": "c",
+        "i2c2handler.h": "c"
+    }
+}

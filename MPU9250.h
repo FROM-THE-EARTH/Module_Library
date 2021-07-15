@@ -1,6 +1,7 @@
 #ifndef INC_MPU9250_H_
 #define INC_MPU9250_H_
 
+#include "stdint.h"
 #include "stdbool.h"
 
 #define MPU9250_ADDRESS 0x68

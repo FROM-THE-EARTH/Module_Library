@@ -35,7 +35,7 @@ typedef struct{
 	bool RPT;		//RelayPacketTransimit
 }IM920_Setting;
 
-void IM920_UART_Receive(uint8_t c);
+void IM920_UART_Receive(uint8_t c); //Execute this funcion in UART intterupt.
 
 bool IM920_Initialize();
 bool IM920_SetReieveID(uint16_t ID);
@@ -47,7 +47,7 @@ bool IM920_SetRelayMode(bool RelayMode);
 bool IM920_Sleep();
 bool IM920_UnSleep();
 bool IM920_Send(uint8_t *data,uint16_t len);
-bool IM920_NewMessage();
-void IM920_Read(uint8_t *data);
+int IM920_NewMessages();
+void IM920_Read(char *str);
 
 #endif

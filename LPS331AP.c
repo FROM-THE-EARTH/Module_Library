@@ -1,5 +1,5 @@
 #include "LPS331AP.h"
-#include "I2CHandler.h"
+#include "I2C1Handler.h"
 
 static uint8_t LPS331AP_ADDR;
 
