@@ -132,6 +132,7 @@ bool IM920_Initialize(){
 	else return false;
 	if(ReadParam("RDCH",&temp))setting.CH = temp;
 	else return false;
+	SetParam("ECIO",0,0);
 	StartReceive();
 	return true;
 }
